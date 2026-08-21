@@ -9,6 +9,12 @@ estado: especificación funcional y técnica (pre-código)
 
 # Proyecto: Base de conocimiento de transcripciones de podcasts
 
+> **⚠️ DOCUMENTO SUPERADO.** Esta es la v1, conservada solo como registro
+> histórico. La especificación vigente es `docs/diseno-v2.md`; el porqué de cada
+> cambio está en `docs/revision-diseno-v1.md`. **No implementar a partir de este
+> fichero**: contiene al menos un error de flag (`-ml 1`, §5.4) y un esquema sin
+> RLS que publicaría el corpus.
+
 > **Propósito de este documento**: servir de entrada única (contexto raíz) para un agente de código
 > que vaya a implementar el sistema. Contiene objetivos, arquitectura, contratos de datos,
 > esquemas, decisiones tomadas y decisiones pendientes. Todo lo marcado como `TODO`

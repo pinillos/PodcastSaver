@@ -27,11 +27,17 @@ que de verdad pueden hundir el sistema:
 3. La **inserción dinámica de publicidad** rompe a la vez `checksum_audio` y la precisión
    del salto temporal, que es *el* valor del sistema.
 4. El enlace `#t=` no funciona de forma fiable en el caso de uso principal (Android).
-5. El índice léxico, tal como está especificado, no encuentra "sesion" cuando el texto
-   dice "sesión". En español eso es la mitad de las consultas reales.
+5. El índice léxico está declarado pero nunca se puebla: `chunks.tsv` es una columna que
+   hay que rellenar a mano en cada `INSERT`, y una columna que se olvida de poblar es un
+   índice que devuelve cero resultados sin dar error.
 
 Ninguno es bloqueante si se corrige antes de escribir código. Abajo van ordenados por
 coste de corregirlos tarde.
+
+> **Nota de verificación.** El esquema y el RPC de este documento se han ejecutado contra
+> un Postgres 16 real (con `pgvector` simulado, que aquí no está disponible). Eso confirmó
+> el bug del cast a `regconfig` (B.6) y las pruebas funcionales de B.5, y **refutó una de
+> mis afirmaciones**: ver A.5, rectificada.
 
 También hay un **error de flag** que produciría una transcripción inservible en la Fase 1
 (§A.0), y una recomendación de modelo desactualizada (§D.1).
@@ -206,33 +212,58 @@ Esto contradice el no-objetivo del §1.1 ("no se construye reproductor propio en
 no-objetivo el que está mal planteado: nadie pide un reproductor de podcasts completo, se
 pide un `<audio>` que empiece en el segundo correcto.
 
-### A.5 El índice léxico ignora los acentos
+### A.5 ~~El índice léxico ignora los acentos~~ — RECTIFICADO: era falso
 
-§7.3 elige `to_tsvector('spanish', content)`. El *stemmer* español de Postgres **no quita
-acentos**: `to_tsvector('spanish','sesión')` produce `sesion`… pero
-`to_tsvector('spanish','sesion')` produce `sesion` también, mientras que la consulta desde
-un teclado móvil sin acentos contra un texto con acentos falla en un porcentaje alto de
-términos (`código`, `qué`, `IA aplicada a la gestión`). En un corpus en español consultado
-desde el móvil, esto no es un detalle.
+**Este hallazgo era incorrecto y lo retiro.** Afirmé que el stemmer `spanish` de Postgres no
+quita tildes y que por tanto `sesion` no encontraría `sesión`. Al ejecutarlo contra un
+Postgres 16 real resulta que **sí las quita**: el algoritmo Snowball para español elimina los
+acentos agudos en su fase final, así que la inmensa mayoría de las palabras ya coinciden sin
+tilde. La configuración `spanish` que proponía la v1 es correcta.
 
-**Corrección** — configuración propia con `unaccent`:
+Medición, `to_tsvector('spanish', a) @@ plainto_tsquery('spanish', b)`:
 
-```sql
-create extension if not exists unaccent;
+| Texto → consulta | `spanish` | Con `unaccent` |
+|---|---|---|
+| sesión → sesion | ✅ | ✅ |
+| código → codigo | ✅ | ✅ |
+| atención → atencion | ✅ | ✅ |
+| parámetros → parametros | ✅ | ✅ |
+| Álvaro → Alvaro | ✅ | ✅ |
+| Ávila → Avila | ✅ | ✅ |
+| Mollá → Molla | ✅ | ✅ |
+| Martín → Martin | ✅ | ✅ |
+| María → Maria | ❌ | ✅ |
+| además → ademas | ❌ | ✅ |
 
-create text search configuration es_unaccent (copy = spanish);
-alter text search configuration es_unaccent
-  alter mapping for hword, hword_part, word
-  with unaccent, spanish_stem;
+El residuo que `unaccent` sí arreglaría (`María`, `además`) viene de **stemming asimétrico**:
+el stemmer aplica las reglas de sufijo sobre la forma acentuada y sobre la no acentuada de
+manera distinta, y ambas convergen en lexemas diferentes. Es real, pero marginal — y los
+nombres propios acentuados del corpus (Álvaro, Mollá, Ávila, Martín) funcionan bien sin
+`unaccent`.
 
-create text search configuration en_unaccent (copy = english);
-alter text search configuration en_unaccent
-  alter mapping for hword, hword_part, word
-  with unaccent, english_stem;
-```
+**Y `unaccent` tiene un coste que no había considerado: colapsa la ñ.**
 
-Y en las consultas, `websearch_to_tsquery('es_unaccent', $1)` en vez de `plainto_tsquery`:
-acepta comillas y `-exclusión`, que es lo que un humano teclea sin pensar.
+| | `spanish` los distingue | `es_unaccent` los distingue |
+|---|---|---|
+| año vs ano | ✅ | ❌ |
+| cañón vs canon | ✅ | ❌ |
+| campaña vs campana | ✅ | ❌ |
+| sueño vs sueno | ✅ | ❌ |
+
+La ñ es una letra, no una tilde, y `unaccent` la trata como si lo fuera. En un corpus en
+español donde "año", "diseño", "campaña" o "español" aparecen constantemente, eso es una
+pérdida de precisión a cambio de una ganancia de recall casi nula.
+
+En un Postgres propio se podría cargar un fichero de reglas `unaccent` personalizado que
+preserve la ñ, pero **en Supabase gestionado no se puede** escribir en
+`$SHAREDIR/tsearch_data/`, así que esa escapatoria no existe aquí.
+
+**Conclusión rectificada**: usar `spanish` / `english` tal como proponía la v1, sin
+`unaccent`. El TODO #5 del §14 se resuelve a favor de lo que el documento original ya decía.
+
+Lo que **sí** sobrevive de este apartado es un detalle menor y real: consultar con
+`websearch_to_tsquery` en vez de `plainto_tsquery`, porque acepta comillas y `-exclusión`,
+que es lo que un humano teclea sin pensar.
 
 ### A.6 `chunks.tsv` está declarado pero nunca se puebla
 
@@ -249,8 +280,8 @@ configuración de idioma dependa de otra fila: `to_tsvector(regconfig, text)` no
 
 ```sql
 alter table chunks
-  add column tsv_es tsvector generated always as (to_tsvector('es_unaccent', content)) stored,
-  add column tsv_en tsvector generated always as (to_tsvector('en_unaccent', content)) stored,
+  add column tsv_es tsvector generated always as (to_tsvector('spanish', content)) stored,
+  add column tsv_en tsvector generated always as (to_tsvector('english', content)) stored,
   add column language text not null;   -- denormalizado, ver B.1
 
 create index chunks_tsv_es_idx on chunks using gin (tsv_es) where language = 'es';
@@ -263,8 +294,10 @@ toda una clase de bugs: no hay forma de insertar un chunk sin índice léxico.
 **Alternativa** si el espacio importa: un trigger `BEFORE INSERT OR UPDATE` que puebla `tsv`
 con la configuración del idioma. Menos declarativo, misma garantía.
 
-Esto resuelve además el TODO #5 del §14: la respuesta es `spanish`/`english` **con
-unaccent**, y la duda desaparece.
+Esto resuelve además el TODO #5 del §14: la respuesta es `spanish`/`english` por idioma
+—sin `unaccent`, ver A.5— y la duda desaparece. Verificado: las columnas generadas se crean
+sin problema, porque `to_tsvector` con un nombre de configuración **literal** sí es
+`IMMUTABLE`; lo que no lo es es pasarle una configuración dinámica.
 
 ---
 
@@ -354,6 +387,31 @@ embeddings por API, además, esto es dinero directo.
   con lo que el usuario busca: un episodio al que saltar, no un párrafo suelto.
 - Deduplicar por solape temporal: dos chunks con solape del 20% sobre el mismo momento son
   el mismo resultado presentado dos veces.
+
+---
+
+### B.6 Dos bugs del RPC que solo aparecen al ejecutarlo
+
+Al escribir la v2 del diseño y pasarla por un Postgres 16 real salieron dos fallos que no se
+ven leyendo el SQL:
+
+**a) `websearch_to_tsquery` exige `regconfig`, no `text`.** Elegir la configuración con un
+`CASE` produce `text` y la función no resuelve:
+
+```
+ERROR: function websearch_to_tsquery(text, text) does not exist
+```
+
+Hace falta un cast explícito: `(case when lang='en' then 'english' else 'spanish' end)::regconfig`.
+
+**b) Una CTE compartida para los filtros desactiva el índice vectorial.** Lo natural es
+factorizar los filtros comunes en un `with filtered as (...)` que usen las dos ramas. Pero
+una CTE referenciada **más de una vez no se inlinea** en Postgres: se materializa. La rama
+vectorial recibiría entonces una tabla materializada y el planificador **no podría usar el
+índice HNSW** para el `order by embedding <=> q`, degradando la consulta a un escaneo
+secuencial de todo el corpus.
+
+Hay que duplicar las condiciones de filtro en cada rama. Es feo y es lo correcto.
 
 ---
 
@@ -667,7 +725,7 @@ Decisiones que el documento tenía y quedan **resueltas**:
 
 | # | Decisión | Resolución |
 |---|---|---|
-| 5 | Configuración de `tsvector` | `es_unaccent` / `en_unaccent` por idioma (A.5, A.6) |
+| 5 | Configuración de `tsvector` | `spanish` / `english` por idioma, **sin `unaccent`** — como decía la v1 (A.5, medido) |
 | 6 | Identidad del podcast #3 | Confirmada, es el correcto (E.1) |
 | 7 | Tamaño del modelo Whisper | `large-v3-turbo` por defecto; validar contra `large-v3` en tramo de tertulia (D.1) |
 
@@ -756,8 +814,9 @@ Si solo se aplican cinco cosas, que sean estas:
 
 1. **§5.4**: quitar `-ml 1`. Cambiar el modelo por defecto a `large-v3-turbo`. Añadir `--vad`.
 2. **§7.3 / §11**: RLS deny-all, acceso vía Edge Function, repo privado.
-3. **§7.3**: `es_unaccent`/`en_unaccent`, columnas generadas `tsv_es`/`tsv_en`, denormalizar
-   `podcast_id`/`published_at`/`language` en `chunks`.
+3. **§7.3**: columnas generadas `tsv_es`/`tsv_en` con `spanish`/`english`, y denormalizar
+   `podcast_id`/`published_at`/`language` en `chunks` para que el filtrado no destruya el
+   recall de HNSW.
 4. **§9 / §1.1**: reproductor `<audio>` mínimo en la PWA dentro del alcance de la v1;
    redefinir `checksum_audio` y añadir `transcribed_duration_sec` por la publicidad dinámica.
 5. **§13**: mover la Fase 3 (índice + UI con 20 episodios) por delante del backfill completo,
