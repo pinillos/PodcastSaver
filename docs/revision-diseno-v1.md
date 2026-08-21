@@ -19,8 +19,9 @@ Los riesgos reales no están donde el documento los pone. El documento se preocu
 del *throttling* térmico (§5.2, riesgo menor y gestionable) y no menciona los cinco puntos
 que de verdad pueden hundir el sistema:
 
-1. Una contradicción interna: se elige `whisper.cpp` porque no se puede instalar Python,
-   y luego se planifican dos etapas (diarización, embeddings) que exigen Python + PyTorch.
+1. La decisión más importante del proyecto —`whisper.cpp`— se justifica con una premisa
+   falsa (que no se puede usar Python). La elección resulta ser correcta de todos modos,
+   pero por otras razones, y la premisa falsa arrastra tres decisiones más.
 2. El corpus acabaría siendo **público** por omisión (Supabase sin RLS, repo Git sin
    marcar como privado), lo que contradice frontalmente el §12.
 3. La **inserción dinámica de publicidad** rompe a la vez `checksum_audio` y la precisión
@@ -67,32 +68,61 @@ un lujo real— la forma correcta es **deliberada y documentada**: `-ml 1 -sow` 
 word). Pero entonces hay que decidirlo en §7.2 y asumir el tamaño del JSON, no meterlo de
 tapadillo en un ejemplo.
 
-### A.1 Contradicción Python: whisper.cpp sí, pero pyannote y e5 no
+### A.1 La justificación del §5.2 parte de una premisa falsa
 
 §5.2 justifica `whisper.cpp` con un argumento explícito: *"binario compilado sin
 dependencias pesadas de Python → encaja con un equipo corporativo donde no se puede
-instalar libremente"*. Es un buen argumento. El problema es que el documento lo abandona
-dos secciones después:
+instalar libremente"*.
 
-- §5.7 propone `pyannote.audio` / `whisperX` para diarizar → Python + PyTorch + token de
-  Hugging Face.
-- §8.2 recomienda ejecutar `multilingual-e5-large` **en local en el Mac** → Python +
-  PyTorch (o sentence-transformers).
+**La premisa es incorrecta.** En el Mac se puede usar Python sin problema. La restricción
+real es distinta —no se puede instalar **software comercial**— y tiene consecuencias
+diferentes (§H).
 
-Es decir: la restricción que justifica la decisión más importante del proyecto se ignora
-en las dos etapas siguientes. Hay que resolverlo explícitamente, no dejarlo latente:
+Esto no cambia la conclusión, pero sí cuatro cosas alrededor de ella. Y hay que corregir el
+texto igualmente: una decisión apoyada en una premisa falsa se revierte en cuanto alguien
+detecta la premisa, aunque la decisión fuera buena.
 
-**Para embeddings** (bloqueante para la Fase 3): usar `llama.cpp` (`llama-embedding` /
-`llama-server --embedding`), que es el mismo tipo de binario C++ que whisper.cpp y tiene
-`bge-m3` y `multilingual-e5-large` en formato GGUF. Cero Python, misma justificación que
-whisper.cpp, misma calidad. **Alternativa igual de válida**: no calcular embeddings en el
-Mac en absoluto y hacerlo en el backend durante la ingesta, que es donde conceptualmente
-pertenece (los `.md` son el contrato; los embeddings son un detalle del índice).
-Recomiendo esta segunda: mantiene el Mac haciendo solo transcripción.
+**a) `whisper.cpp` sigue siendo el default correcto, por otras razones.** No por evitar
+Python, sino por: aceleración Metal, VAD integrado (C.7), cuantización `q5_0`/`q8_0` para
+ajustar RAM, y madurez. Reescribir la justificación del §5.2 en esos términos.
 
-**Para diarización** (fase 2, no bloqueante): asumir que requiere Python y decidir dónde
-corre. Si el Mac es corporativo y no puede, la diarización se hace en otra máquina o no se
-hace. Lo que no se puede es planificarla en §5.7 sin resolver esto.
+**b) `mlx-whisper` entra en la ecuación y merece medirse.** Es la implementación de Whisper
+sobre MLX, el framework de Apple para Apple Silicon: Python, `pip install mlx-whisper`,
+open source, ejecuta en la GPU integrada. En M-series suele competir de tú a tú con
+whisper.cpp y a menudo lo supera con modelos grandes. El documento no lo menciona porque lo
+descartó implícitamente al descartar Python.
+
+No propongo cambiar el default a ciegas. Propongo **medirlo en la Fase 1**: es un
+`pip install` y una transcripción de 10 minutos, y la diferencia se multiplica por las ~260
+horas del backfill (D.2). Si gana, se gana un fin de semana; si pierde, se han gastado 20
+minutos. Contrapartida conocida: mlx-whisper no trae VAD integrado (habría que añadir
+`silero-vad` por separado), y ahí whisper.cpp lleva ventaja de comodidad.
+
+**c) Cuidado con `faster-whisper` en Mac — el §5.2 induce a error.** El documento lo ofrece
+como *"alternativa si se permite Python (...), también viable en CPU"*. Ahora que Python sí
+está permitido, es la opción a la que se tiende de forma natural, y en este equipo concreto
+es la peor de las tres: CTranslate2 **no tiene backend Metal**, así que en Mac corre solo en
+CPU. En un Air sin ventilador eso significa renunciar a la GPU y multiplicar los tiempos de
+D.2. `faster-whisper` es excelente en máquinas con CUDA; aquí no. Conviene decirlo en §5.2
+en vez de presentarlo como equivalente.
+
+**d) §5.7 y §8.2 dejan de estar bloqueadas.** Era la parte que yo daba por contradictoria y
+no lo es:
+
+- **Diarización** (§5.7): `pyannote.audio` es viable en el Mac (torch sobre MPS). Esto
+  cambia su prioridad — ver D.4, donde propongo adelantarla.
+- **Embeddings** (§8.2): `multilingual-e5-large` o `bge-m3` vía `sentence-transformers`
+  corren en local sin fricción. Ya no hace falta la vuelta por `llama.cpp` que yo sugería.
+
+Con esto, **dónde se calculan los embeddings deja de ser una restricción y pasa a ser una
+decisión de arquitectura**, que es como debe tratarse. Mi recomendación se mantiene, pero
+el argumento es otro: ponerlos en la etapa `src/index/` y no en `src/export/`. Motivo — el
+principio rector del §3 dice que el `.md` es el contrato entre las dos mitades. Si los
+embeddings se generan en la exportación, el Mac pasa a ser necesario para reindexar; si se
+generan en la indexación, reindexar solo necesita el repo. Y como el repo es Git, eso
+habilita algo que el documento no contempla: **ejecutar la indexación en un GitHub Action
+disparado por `push`**, con el Mac apagado. Es gratis en repos privados y encaja
+exactamente con el desacople del §3.
 
 ### A.2 El corpus sería público por omisión
 
@@ -354,16 +384,19 @@ El §14 lista siete decisiones pendientes y **no incluye la más estructurante**
 escribe el CLI. Todo el documento habla de esquemas y flags sin decir nunca si `src/ingest/`
 es Python, Go o TypeScript.
 
-No es un detalle de gusto: interactúa directamente con la restricción del §5.2 (equipo
-corporativo sin instalaciones libres) y con A.1.
+Confirmado que Python está disponible en el Mac, **la respuesta es Python** y conviene
+escribirlo en el documento, no dejarlo implícito: es lo que hace viables `feedparser`,
+`pyannote`, `sentence-transformers` y `mlx-whisper` sin discusión, y es donde vive el
+ecosistema entero de este dominio.
 
-**Recomendación: Python gestionado con `uv`.** `uv` instala su propio intérprete en
-`~/.local`, sin permisos de administrador ni tocar el Python del sistema, y `uv run`
-resuelve dependencias por proyecto. Se obtiene el ecosistema (feedparser, pydantic,
-httpx) sin el problema que §5.2 quería evitar. Si aun así se prefiere un único binario
-sin runtime, Go es la alternativa natural y no pierde nada relevante aquí.
+**Recomendación de gestión de entorno: `uv`.** Instala su propio intérprete en `~/.local`
+sin tocar el Python del sistema ni pedir permisos de administrador, y `uv run` resuelve
+dependencias por proyecto de forma reproducible. Es open source (MIT), así que no toca la
+restricción de §H. La alternativa —`venv` + `pip` a pelo— funciona igual de bien; lo que
+importa es fijarlo en el `README` para que el entorno sea reproducible.
 
-Esta decisión debería tomarse **antes** de la Fase 0, porque condiciona todo lo demás.
+Lo que sí hay que evitar es depender del Python del sistema de macOS: Apple lo actualiza
+entre versiones del SO y rompe entornos sin avisar.
 
 ### C.3 Dedupe entre feeds: los episodios de La Tertul-IA salen en dos sitios
 
@@ -521,11 +554,29 @@ conocidos del *initial prompt* de Whisper:
    `fixups.tsv`, no el prompt. El diseño ya lo tiene previsto (bien); solo hay que ordenar
    la expectativa: el prompt ayuda al principio, los fixups arreglan el resto.
 
-### D.4 Diarización: resolver el mapeo de hablantes con voces de referencia
+### D.4 Diarización: viable ya, y conviene adelantarla
 
-§5.7 identifica correctamente el problema real —"el orden no es estable entre episodios"—
-y propone "un mapa por podcast", lo que en la práctica significa etiquetar a mano
-`SPEAKER_00 → Frankie` en cada episodio. Para 350 episodios eso no se va a hacer.
+§5.7 la aplaza a "fase 2" —en la práctica Fase 4 según §13— porque la daba por costosa de
+montar. Con Python disponible en el Mac esa razón desaparece: `pyannote.audio` corre sobre
+torch/MPS en Apple Silicon, es open source y gratuito (requiere cuenta en Hugging Face y
+aceptar la licencia del modelo `speaker-diarization-3.1`, que es gratis; **no** confundir con
+el servicio de pago pyannoteAI, que sí quedaría bajo §H).
+
+**Recomiendo adelantarla a la Fase 2, antes del backfill masivo.** No por capricho: la
+diarización se aplica sobre el **audio**, y el audio es justo lo que el diseño decide no
+conservar (§9). Si se diariza después del backfill, hay que **volver a descargar 260 horas
+de audio** — y con inserción dinámica de publicidad (A.3), ese audio ya no es el mismo que
+se transcribió, así que los timestamps de la diarización no cuadrarán con los de la
+transcripción. Es el único punto del diseño donde postergar algo lo vuelve caro en vez de
+barato, y contradice el principio del §3.
+
+Si aun así se prefiere no diarizar todavía, la alternativa es **guardar el WAV normalizado**
+de cada episodio hasta que se decida (unos 100 MB/hora a 16 kHz mono; ~26 GB para el
+backfill completo, borrables después). Feo, pero mucho más barato que redescargar.
+
+Sobre el mapeo de hablantes, §5.7 identifica bien el problema real —"el orden no es estable
+entre episodios"— y propone "un mapa por podcast", lo que en la práctica significa etiquetar
+a mano `SPEAKER_00 → Frankie` en cada episodio. Para 350 episodios eso no se va a hacer.
 
 **Mejor solución**: extraer una vez 15–20 s de voz limpia de cada tertuliano, calcular su
 *embedding* de locutor, y asignar cada cluster del episodio al tertuliano más cercano por
@@ -624,24 +675,75 @@ Decisiones que **siguen abiertas**, reformuladas:
 
 | # | Decisión | Nota |
 |---|---|---|
-| 1 | Modelo de embeddings | `multilingual-e5-large` o `bge-m3`; ambos 1024 dims, así que el esquema no depende de la elección. Decidir en Fase 3, no antes |
-| 2 | Proveedor de LLM para enriquecimiento | Sin impacto estructural: §6 es re-ejecutable sobre los `.md` |
+| 1 | Modelo de embeddings | `multilingual-e5-large` o `bge-m3`; ambos 1024 dims, así que el esquema no depende de la elección. Ambos gratuitos y locales (A.1.d). Decidir en Fase 3, no antes |
+| 2 | Proveedor de LLM para enriquecimiento | Única decisión del proyecto con coste recurrente real. Ver §H |
 | 3 | UI propia vs cliente ligero | Condicionada por A.2 (hace falta una capa servidor de todos modos) y A.4 (hace falta un `<audio>` propio) |
-| 4 | Política de caché de audio | Reformulada por A.3: la caché es la única garantía de timestamps exactos, no un extra |
+| 4 | Política de caché de audio | Reformulada por A.3: la caché es la única garantía de timestamps exactos, no un extra. Y por D.4: si se diariza, el audio hace falta de todos modos |
 
 Decisiones **nuevas** que hay que tomar y no estaban:
 
 | # | Decisión | Cuándo |
 |---|---|---|
-| 8 | **Lenguaje de implementación del CLI** (C.2) | Antes de la Fase 0 — condiciona todo |
-| 9 | **Dónde se calculan los embeddings**: Mac vía llama.cpp, o backend (A.1) | Fase 3 |
-| 10 | **Modelo de acceso al backend**: RLS + Edge Function vs Auth de usuario único (A.2) | Fase 3, pero decidir ya |
-| 11 | **Repo privado** y política de qué se versiona (A.2, C.6) | Fase 0 |
-| 12 | **Timestamps por segmento o por palabra** (A.0) | Fase 1 — afecta al formato de `.segments.json` |
+| 8 | **Dónde corre la etapa de indexado**: Mac, o GitHub Action disparado por `push` (A.1.d) | Fase 3 |
+| 9 | **Modelo de acceso al backend**: RLS + Edge Function vs Auth de usuario único (A.2) | Fase 3, pero decidir ya |
+| 10 | **Repo privado** y política de qué se versiona (A.2, C.6) | Fase 0 |
+| 11 | **Timestamps por segmento o por palabra** (A.0) | Fase 1 — afecta al formato de `.segments.json` |
+| 12 | **Si se diariza o no** — y si no, si se conserva el WAV por si acaso (D.4) | Antes del backfill, no después |
+
+Resuelta y fuera de la lista: el **lenguaje de implementación** es Python, gestionado con
+`uv` (C.2).
 
 ---
 
-## G. Cambios concretos al documento, en orden
+## H. Restricción real del equipo: software comercial
+
+La restricción operativa del Mac no es Python (A.1), sino que **no se puede instalar
+software comercial**. Es una restricción distinta y con otro alcance, así que conviene
+inventariar dónde toca el diseño. Regla de trabajo acordada: **caso por caso** — todo lo que
+cueste dinero, instalado o en la nube, se confirma antes de adoptarlo.
+
+La buena noticia es que el camino crítico entero es gratuito y open source. Nada de lo que
+hace falta para llegar a una búsqueda funcionando cuesta un euro:
+
+| Pieza | Herramienta | Licencia / coste |
+|---|---|---|
+| Transcripción | whisper.cpp, modelos GGML | MIT / gratis |
+| Alternativa a medir (A.1.b) | mlx-whisper | MIT / gratis |
+| Audio | ffmpeg | LGPL / gratis |
+| Runtime y entorno | Python + `uv` | PSF, MIT / gratis |
+| Embeddings | `multilingual-e5-large`, `bge-m3` | MIT/Apache / gratis |
+| Diarización | `pyannote.audio` 3.1 | MIT / gratis (cuenta HF + aceptar licencia del modelo) |
+| Índice y búsqueda | Postgres + pgvector | PostgreSQL, MIT / gratis |
+| Repo privado | GitHub | gratis para repos privados |
+| Indexado desatendido | GitHub Actions | gratis en repo privado (2.000 min/mes) |
+| Lectura manual | Obsidian | gratis; se mantiene (decisión tomada) |
+
+Y los puntos donde el diseño **sí** roza algo de pago. Ninguno es necesario, todos tienen
+sustituto gratuito, y los planteo aquí para preguntarlos cuando toque en vez de asumirlos:
+
+| Pieza del diseño | Opción de pago | Sustituto gratuito | Cuándo lo preguntaré |
+|---|---|---|---|
+| §5.1 plan B para episodios problemáticos | API Whisper de OpenAI (~0,36 USD/h) | `large-v3` completo en local: más lento, sin coste, y probablemente mejor | Solo si algún episodio falla la validación de C.8 |
+| §6 enriquecimiento con LLM | API de LLM | LLM local (`Ollama`/`llama.cpp`, 7–14B): suficiente para resumen y extracción de entidades sobre texto ya transcrito | Fase 2, al implementar §6 |
+| §8.2 embeddings | `voyage-3`, `text-embedding-3-large` | `multilingual-e5-large` local, misma dimensión | No hace falta; descartado salvo que lo pidas |
+| B.2 pausa por inactividad de Supabase | Plan de pago | Free tier + `ping` semanal desde el `launchd` que ya existe (§4.3) | Fase 3, si la pausa molesta en la práctica |
+| D.4 diarización | pyannoteAI (servicio) | `pyannote.audio` open source, mismo linaje | No hace falta |
+
+**El único con coste recurrente que puede valer la pena** es el enriquecimiento (§6):
+resumir 350 episodios con una API cuesta del orden de unos pocos euros en total, y la
+calidad frente a un modelo local de 7B es notablemente mejor en extracción de entidades. Lo
+plantearé como pregunta concreta cuando lleguemos a la Fase 2, con el coste estimado
+delante. Hasta entonces, el diseño asume LLM local.
+
+Nota sobre §6 que refuerza esto: el documento ya dice que el enriquecimiento es opcional
+para la v1 y re-ejecutable sobre los `.md`. Eso significa que la decisión se puede aplazar
+sin coste **y** revertir después: si se empieza con un modelo local y no convence, se
+reprocesa con API sin retranscribir nada. Es el mejor sitio posible para dejar una decisión
+abierta.
+
+---
+
+## I. Cambios concretos al documento, en orden
 
 Si solo se aplican cinco cosas, que sean estas:
 
@@ -651,7 +753,9 @@ Si solo se aplican cinco cosas, que sean estas:
    `podcast_id`/`published_at`/`language` en `chunks`.
 4. **§9 / §1.1**: reproductor `<audio>` mínimo en la PWA dentro del alcance de la v1;
    redefinir `checksum_audio` y añadir `transcribed_duration_sec` por la publicidad dinámica.
-5. **§13**: mover la Fase 3 (índice + UI con 20 episodios) por delante del backfill completo.
+5. **§13**: mover la Fase 3 (índice + UI con 20 episodios) por delante del backfill completo,
+   y decidir la diarización **antes** del backfill, no después (D.4).
 
-Y una decisión que hay que tomar antes de escribir la primera línea: **en qué lenguaje**
-(C.2).
+Y dos correcciones de texto que no cambian ninguna decisión pero evitan que se reviertan
+por el motivo equivocado: reescribir la justificación del §5.2 (A.1) y marcar
+`faster-whisper` como mala opción *en Mac* concretamente (A.1.c).
