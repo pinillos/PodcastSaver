@@ -707,7 +707,7 @@ hace falta para llegar a una búsqueda funcionando cuesta un euro:
 
 | Pieza | Herramienta | Licencia / coste |
 |---|---|---|
-| Transcripción | whisper.cpp, modelos GGML | MIT / gratis |
+| Transcripción | whisper.cpp + pesos de Whisper | MIT / gratis, sin coste por minuto ni cuenta |
 | Alternativa a medir (A.1.b) | mlx-whisper | MIT / gratis |
 | Audio | ffmpeg | LGPL / gratis |
 | Runtime y entorno | Python + `uv` | PSF, MIT / gratis |
@@ -719,11 +719,18 @@ hace falta para llegar a una búsqueda funcionando cuesta un euro:
 | Lectura manual | Obsidian | gratis; se mantiene (decisión tomada) |
 
 Y los puntos donde el diseño **sí** roza algo de pago. Ninguno es necesario, todos tienen
-sustituto gratuito, y los planteo aquí para preguntarlos cuando toque en vez de asumirlos:
+sustituto gratuito, y los planteo aquí para preguntarlos cuando toque en vez de asumirlos.
+
+> **No confundir las dos cosas que se llaman "Whisper".** El modelo es open source (MIT):
+> ejecutarlo en local es gratis, ilimitado y sin cuenta, y es el camino por defecto de todo
+> este diseño. Lo que cuesta dinero es la **API alojada** de OpenAI, que sirve el mismo
+> modelo desde sus servidores. Solo aparece abajo porque el §5.1 la menciona como plan B, y
+> mi recomendación es no usarla: `large-v3` en local es gratis y normalmente mejor, porque
+> la API sirve `large-v2` en la mayoría de los casos.
 
 | Pieza del diseño | Opción de pago | Sustituto gratuito | Cuándo lo preguntaré |
 |---|---|---|---|
-| §5.1 plan B para episodios problemáticos | API Whisper de OpenAI (~0,36 USD/h) | `large-v3` completo en local: más lento, sin coste, y probablemente mejor | Solo si algún episodio falla la validación de C.8 |
+| §5.1 plan B para episodios problemáticos | API **alojada** de Whisper (OpenAI, ~0,36 USD/h) — no el Whisper local | `large-v3` completo en local: más lento, sin coste, y probablemente mejor | Solo si algún episodio falla la validación de C.8 |
 | §6 enriquecimiento con LLM | API de LLM | LLM local (`Ollama`/`llama.cpp`, 7–14B): suficiente para resumen y extracción de entidades sobre texto ya transcrito | Fase 2, al implementar §6 |
 | §8.2 embeddings | `voyage-3`, `text-embedding-3-large` | `multilingual-e5-large` local, misma dimensión | No hace falta; descartado salvo que lo pidas |
 | B.2 pausa por inactividad de Supabase | Plan de pago | Free tier + `ping` semanal desde el `launchd` que ya existe (§4.3) | Fase 3, si la pausa molesta en la práctica |
