@@ -17,14 +17,22 @@ from typing import Any
 import feedparser
 import httpx
 
-from .urls import enclosure_sha256
+from .urls import enclosure_sha256, resolve_relative
 
 USER_AGENT = "podcast-kb/0.1 (+base de conocimiento personal; contacto en el repo)"
 
 ITUNES_LOOKUP = "https://itunes.apple.com/lookup"
 
-PODCAST_NS = "https://podcastindex.org/namespace/1.0"
+# El espacio de nombres de Podcasting 2.0 circula con dos URIs distintas; los
+# feeds a mano usan indistintamente una u otra.
+PODCAST_NS = (
+    "https://podcastindex.org/namespace/1.0",
+    "https://podcastindex.org/namespace/1.0/",
+    "https://github.com/Podcastindex-org/podcast-namespace/blob/main/docs/1.0.md",
+)
 PSC_NS = "http://podlove.org/simple-chapters"
+MEDIA_NS = "http://search.yahoo.com/mrss/"
+ATOM_NS = "http://www.w3.org/2005/Atom"
 
 _EP_NUM_RE = re.compile(r"(?:^|[#\s])(?:ep(?:isodio|isode)?\.?\s*)?(\d{1,4})\b", re.I)
 
@@ -78,6 +86,7 @@ class FeedInspection:
     last_published: str | None = None
     n_transcripts: int = 0
     n_chapters: int = 0
+    self_link: str | None = None
     trackers: list[str] = field(default_factory=list)
 
 
@@ -86,6 +95,7 @@ class FeedResult:
     title: str | None
     language: str | None
     items: list[EpisodeItem] = field(default_factory=list)
+    self_link: str | None = None
     etag: str | None = None
     last_modified: str | None = None
     not_modified: bool = False
@@ -145,11 +155,13 @@ def fetch_feed(
     etag: str | None = None,
     last_modified: str | None = None,
     client: httpx.Client | None = None,
-) -> tuple[bytes | None, str | None, str | None]:
+) -> tuple[bytes | None, str | None, str | None, str]:
     """Descarga el feed usando caché condicional (§4.2).
 
-    Devuelve (contenido, etag, last_modified). El contenido es None si el
-    servidor responde 304: no hay nada nuevo que parsear.
+    Devuelve (contenido, etag, last_modified, url_final). El contenido es None
+    si el servidor responde 304: no hay nada nuevo que parsear. La URL final es
+    la que hay tras las redirecciones, y es la que sirve de base para resolver
+    enclosures relativos.
     """
     headers = {"User-Agent": USER_AGENT}
     if etag:
@@ -169,10 +181,16 @@ def fetch_feed(
     if resp.status_code == 429:
         retry_after = resp.headers.get("Retry-After", "?")
         raise FeedError(f"429 del servidor; Retry-After={retry_after}")
+    final_url = str(resp.url)
     if resp.status_code == 304:
-        return None, etag, last_modified
+        return None, etag, last_modified, final_url
     resp.raise_for_status()
-    return resp.content, resp.headers.get("ETag"), resp.headers.get("Last-Modified")
+    return (
+        resp.content,
+        resp.headers.get("ETag"),
+        resp.headers.get("Last-Modified"),
+        final_url,
+    )
 
 
 def _to_iso(struct_time: Any) -> str | None:
@@ -223,35 +241,100 @@ def extract_episode_number(title: str, entry: Any = None) -> int | None:
     return int(match.group(1)) if match else None
 
 
-def _podcasting20_by_guid(raw_xml: bytes) -> dict[str, dict]:
-    """Elementos <podcast:*> por guid, que feedparser no expone (§4.4)."""
-    found: dict[str, dict] = {}
+def _find_ns(item: ET.Element, tag: str) -> ET.Element | None:
+    """Busca un elemento en cualquiera de las URIs conocidas del namespace."""
+    for ns in PODCAST_NS:
+        found = item.find(f"{{{ns}}}{tag}")
+        if found is not None:
+            return found
+    return None
+
+
+def _podcasting20_by_index(raw_xml: bytes) -> list[dict]:
+    """Elementos <podcast:*> por POSICIÓN del item (§4.4).
+
+    Indexar por `guid` parecía natural, pero los feeds autoalojados a menudo
+    omiten el guid — y entonces la transcripción publicada se perdía en
+    silencio, que es justo lo contrario de lo que queremos. feedparser conserva
+    el orden de los items, así que la posición es una clave más fiable.
+    """
+    found: list[dict] = []
     try:
-        root = ET.fromstring(raw_xml)
+        # El BOM rompe ET.fromstring; feedparser lo tolera, así que sin esto
+        # los dos parseos se desalineaban.
+        root = ET.fromstring(raw_xml.lstrip(b"\xef\xbb\xbf").lstrip())
     except ET.ParseError:
         return found
 
     for item in root.iter("item"):
-        guid_el = item.find("guid")
-        guid = (guid_el.text or "").strip() if guid_el is not None else ""
-        if not guid:
-            continue
         data: dict[str, Any] = {}
 
-        transcript = item.find(f"{{{PODCAST_NS}}}transcript")
+        transcript = _find_ns(item, "transcript")
         if transcript is not None and transcript.get("url"):
             data["feed_transcript_url"] = transcript.get("url")
             data["feed_transcript_type"] = transcript.get("type")
 
-        chapters = item.find(f"{{{PODCAST_NS}}}chapters")
+        chapters = _find_ns(item, "chapters")
         if chapters is not None and chapters.get("url"):
             data["feed_chapters_url"] = chapters.get("url")
         elif item.find(f"{{{PSC_NS}}}chapters") is not None:
             data["feed_chapters_url"] = "psc:inline"
 
-        if data:
-            found[guid] = data
+        found.append(data)
     return found
+
+
+def _self_link(raw_xml: bytes) -> str | None:
+    """`<atom:link rel="self">`: la URL canónica que el feed declara de sí mismo."""
+    try:
+        root = ET.fromstring(raw_xml.lstrip(b"\xef\xbb\xbf").lstrip())
+    except ET.ParseError:
+        return None
+    channel = root.find("channel")
+    if channel is None:
+        return None
+    for link in channel.findall(f"{{{ATOM_NS}}}link"):
+        if link.get("rel") == "self" and link.get("href"):
+            return link.get("href")
+    return None
+
+
+def _pick_audio(entry: Any, item_el: ET.Element | None) -> tuple[str, int | None]:
+    """Elige la pista de audio del item.
+
+    Prefiere explícitamente `type="audio/*"`: un feed que publica el vídeo
+    primero (habitual cuando el podcast también sale en YouTube) hacía que se
+    descargara y transcribiera el .mp4.
+    """
+    candidatos: list[tuple[str, int | None, str]] = []
+    for enclosure in entry.get("enclosures") or []:
+        href = enclosure.get("href") or enclosure.get("url") or ""
+        if not href:
+            continue
+        try:
+            length = int(enclosure.get("length") or 0) or None
+        except (TypeError, ValueError):
+            length = None
+        candidatos.append((href, length, (enclosure.get("type") or "").lower()))
+
+    # Media RSS como alternativa: algunos feeds a mano no usan <enclosure>.
+    if not candidatos and item_el is not None:
+        for media in item_el.findall(f"{{{MEDIA_NS}}}content"):
+            href = media.get("url") or ""
+            if not href:
+                continue
+            try:
+                length = int(media.get("fileSize") or 0) or None
+            except (TypeError, ValueError):
+                length = None
+            candidatos.append((href, length, (media.get("type") or "").lower()))
+
+    if not candidatos:
+        return "", None
+    for href, length, mimetype in candidatos:
+        if mimetype.startswith("audio/"):
+            return href, length
+    return candidatos[0][0], candidatos[0][1]
 
 
 def _entry_guid(entry: Any, audio_url: str) -> str:
@@ -266,31 +349,31 @@ def _entry_guid(entry: Any, audio_url: str) -> str:
     return f"sha256:{enclosure_sha256(title + published)}"
 
 
-def parse_feed(raw_xml: bytes) -> FeedResult:
+def parse_feed(raw_xml: bytes, base_url: str | None = None) -> FeedResult:
     parsed = feedparser.parse(raw_xml)
-    extras = _podcasting20_by_guid(raw_xml)
+    extras = _podcasting20_by_index(raw_xml)
+    try:
+        item_els = list(ET.fromstring(raw_xml.lstrip(b"\xef\xbb\xbf").lstrip()).iter("item"))
+    except ET.ParseError:
+        item_els = []
 
     channel = parsed.feed
     result = FeedResult(
         title=channel.get("title"),
         language=(channel.get("language") or "").split("-")[0].lower() or None,
+        self_link=_self_link(raw_xml),
     )
+    # Los enclosures relativos se resuelven contra la URL del feed; si no la
+    # tenemos, contra el <link> del canal.
+    base = base_url or result.self_link or channel.get("link")
 
-    for entry in parsed.entries:
-        audio_url = ""
-        audio_bytes = None
-        for enclosure in entry.get("enclosures") or []:
-            href = enclosure.get("href") or enclosure.get("url") or ""
-            if href:
-                audio_url = href
-                try:
-                    audio_bytes = int(enclosure.get("length") or 0) or None
-                except (TypeError, ValueError):
-                    audio_bytes = None
-                break
-        if not audio_url:
+    for index, entry in enumerate(parsed.entries):
+        item_el = item_els[index] if index < len(item_els) else None
+        raw_audio, audio_bytes = _pick_audio(entry, item_el)
+        if not raw_audio:
             continue  # sin audio no hay episodio que transcribir
 
+        audio_url = resolve_relative(raw_audio, base)
         title = entry.get("title") or "(sin título)"
         guid = _entry_guid(entry, audio_url)
         published = _to_iso(entry.get("published_parsed")) or _to_iso(
@@ -299,7 +382,7 @@ def parse_feed(raw_xml: bytes) -> FeedResult:
         if not published:
             continue  # published_at es NOT NULL: sin fecha no se da de alta
 
-        extra = extras.get(guid, {})
+        extra = extras[index] if index < len(extras) else {}
         result.items.append(
             EpisodeItem(
                 guid=guid,
@@ -338,7 +421,7 @@ def inspect_feed(rss_url: str, *, client: httpx.Client | None = None) -> FeedIns
         inspection.status = resp.status_code
         inspection.final_url = str(resp.url)
         resp.raise_for_status()
-        parsed = parse_feed(resp.content)
+        parsed = parse_feed(resp.content, base_url=str(resp.url))
     except httpx.HTTPError as exc:
         inspection.error = f"{type(exc).__name__}: {exc}"
         return inspection
@@ -358,6 +441,7 @@ def inspect_feed(rss_url: str, *, client: httpx.Client | None = None) -> FeedIns
         inspection.first_published, inspection.last_published = fechas[0], fechas[-1]
     inspection.n_transcripts = sum(1 for i in parsed.items if i.feed_transcript_url)
     inspection.n_chapters = sum(1 for i in parsed.items if i.feed_chapters_url)
+    inspection.self_link = parsed.self_link
 
     vistos: set[str] = set()
     for item in parsed.items:

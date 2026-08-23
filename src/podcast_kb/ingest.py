@@ -58,7 +58,7 @@ def sync_podcast(
             "SELECT etag, last_modified FROM podcasts WHERE id = ?", (podcast_id,)
         ).fetchone()
 
-        raw, etag, last_modified = feeds.fetch_feed(
+        raw, etag, last_modified, final_url = feeds.fetch_feed(
             resolved["rss_url"],
             etag=row["etag"],
             last_modified=row["last_modified"],
@@ -68,7 +68,9 @@ def sync_podcast(
             report.not_modified = True
             return report
 
-        parsed = feeds.parse_feed(raw)
+        # La URL final resuelve los enclosures relativos de los feeds
+        # autoalojados; sin ella salían rutas inservibles.
+        parsed = feeds.parse_feed(raw, base_url=final_url)
     except (feeds.FeedError, httpx.HTTPError) as exc:
         report.ok = False
         report.error = f"{type(exc).__name__}: {exc}"

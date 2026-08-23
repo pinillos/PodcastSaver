@@ -146,3 +146,25 @@ class TestSyncAll:
         # sync_all abre su propio cliente; se prueba solo el filtrado.
         activos = [e for e in entries if e.get("active", True)]
         assert len(activos) == 1
+
+
+class TestFeedAutoalojado:
+    """Un feed con enclosures relativos tiene que funcionar en el sync real."""
+
+    FEED = b"""<?xml version="1.0"?>
+    <rss version="2.0"><channel><title>Autoalojado</title><language>es</language>
+    <item><title>Uno</title><guid>ep-001</guid>
+     <pubDate>Mon, 03 Mar 2025 08:00:00 GMT</pubDate>
+     <enclosure url="/audio/ep001.mp3" type="audio/mpeg"/></item>
+    </channel></rss>"""
+
+    def test_el_enclosure_relativo_queda_absoluto_en_sqlite(self, conn):
+        url = "https://podcast.ejemplo.com/feed.xml"
+        client = make_client({url: (200, self.FEED, {})})
+        entry = {"slug": "autoalojado", "language": "es", "rss_url": url}
+
+        report = ingest.sync_podcast(conn, entry, client=client)
+        assert report.new_count == 1
+
+        row = conn.execute("SELECT audio_url FROM episodes").fetchone()
+        assert row["audio_url"] == "https://podcast.ejemplo.com/audio/ep001.mp3"

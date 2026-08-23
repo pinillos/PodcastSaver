@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"
+     xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"
+     xmlns:atom="http://www.w3.org/2005/Atom"
+     xmlns:media="http://search.yahoo.com/mrss/"
+     xmlns:podcast="https://github.com/Podcastindex-org/podcast-namespace/blob/main/docs/1.0.md"
+     xmlns:psc="http://podlove.org/simple-chapters">
+  <channel>
+    <title>Podcast autoalojado de ejemplo</title>
+    <link>https://podcast.ejemplo.com/</link>
+    <language>es</language>
+    <atom:link rel="self" href="https://podcast.ejemplo.com/feed.xml" type="application/rss+xml"/>
+
+    <!-- Enclosure relativo, como hacen muchos generadores estáticos -->
+    <item>
+      <title>Uno: ruta relativa</title>
+      <guid isPermaLink="false">ep-001</guid>
+      <pubDate>Mon, 03 Mar 2025 08:00:00 GMT</pubDate>
+      <enclosure url="/audio/ep001.mp3" length="12345678" type="audio/mpeg"/>
+      <podcast:transcript url="https://podcast.ejemplo.com/t/ep001.vtt" type="text/vtt"/>
+    </item>
+
+    <!-- Vídeo declarado antes que el audio -->
+    <item>
+      <title>Dos: vídeo primero</title>
+      <guid>ep-002</guid>
+      <pubDate>Mon, 10 Mar 2025 08:00:00 GMT</pubDate>
+      <enclosure url="https://podcast.ejemplo.com/v/ep002.mp4" type="video/mp4"/>
+      <enclosure url="https://podcast.ejemplo.com/a/ep002.mp3" type="audio/mpeg"/>
+    </item>
+
+    <!-- Media RSS en vez de enclosure -->
+    <item>
+      <title>Tres: media:content</title>
+      <guid>ep-003</guid>
+      <pubDate>Mon, 17 Mar 2025 08:00:00 GMT</pubDate>
+      <media:content url="https://podcast.ejemplo.com/a/ep003.mp3" type="audio/mpeg" fileSize="999"/>
+      <psc:chapters version="1.2"><psc:chapter start="00:00:00" title="Intro"/></psc:chapters>
+    </item>
+
+    <!-- Sin guid, pero con transcripción publicada -->
+    <item>
+      <title>Cuatro: sin guid</title>
+      <pubDate>Mon, 24 Mar 2025 08:00:00 GMT</pubDate>
+      <enclosure url="audio/ep004.mp3" type="audio/mpeg"/>
+      <podcast:transcript url="https://podcast.ejemplo.com/t/ep004.srt" type="application/srt"/>
+    </item>
+  </channel>
+</rss>

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import urljoin, urlsplit, urlunsplit
 
 # Hosts que actúan como redirectores/medidores por delante del audio real.
 TRACKER_HOSTS = frozenset({
@@ -78,13 +78,28 @@ def unwrap_trackers(url: str) -> str:
     return current
 
 
-def normalize_enclosure_url(url: str) -> str:
+def resolve_relative(url: str, base_url: str | None) -> str:
+    """Resuelve un enclosure relativo contra la URL del feed.
+
+    Los feeds autoalojados a menudo publican rutas relativas (`/audio/ep1.mp3`)
+    en vez de URLs absolutas. Sin esto salía `https:///audio/ep1.mp3`, que no
+    se puede descargar y además contamina el hash de identidad.
+    """
+    url = (url or "").strip()
+    if not url or not base_url:
+        return url
+    if urlsplit(url).scheme:
+        return url
+    return urljoin(base_url, url)
+
+
+def normalize_enclosure_url(url: str, base_url: str | None = None) -> str:
     """URL canónica de un enclosure, estable frente a tracking y analítica.
 
     No sirve para descargar — para eso se usa la URL original, que es la que
     el hosting espera. Sirve solo como identidad.
     """
-    url = unwrap_trackers(url.strip())
+    url = unwrap_trackers(resolve_relative(url, base_url))
     parts = urlsplit(url)
 
     scheme = (parts.scheme or "https").lower()
@@ -99,6 +114,7 @@ def normalize_enclosure_url(url: str) -> str:
     return urlunsplit((scheme, host, parts.path, "", ""))
 
 
-def enclosure_sha256(url: str) -> str:
+def enclosure_sha256(url: str, base_url: str | None = None) -> str:
     """Clave de dedupe global (§4.2)."""
-    return hashlib.sha256(normalize_enclosure_url(url).encode("utf-8")).hexdigest()
+    canonical = normalize_enclosure_url(url, base_url)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
