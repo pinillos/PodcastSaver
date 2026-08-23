@@ -9,7 +9,9 @@ from pathlib import Path
 
 import yaml
 
-DEFAULT_CONFIG_PATH = Path("config/podcasts.yaml")
+from .paths import config_path
+
+DEFAULT_CONFIG_PATH = config_path("podcasts.yaml")
 
 _REQUIRED = ("slug", "language")
 
