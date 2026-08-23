@@ -38,7 +38,10 @@ def init(db_path: str = DbOption) -> None:
 def add(
     slug: str = typer.Option(..., "--slug", help="Identificador corto y estable."),
     rss: Optional[str] = typer.Option(None, "--rss", help="URL del feed RSS."),
-    apple_id: Optional[str] = typer.Option(None, "--apple-id", help="ID de Apple Podcasts."),
+    apple_id: Optional[str] = typer.Option(
+        None, "--apple-id",
+        help="ID de Apple Podcasts, o una URL de pod.link / podcasts.apple.com.",
+    ),
     lang: str = typer.Option("es", "--lang", help="Idioma del podcast (es | en)."),
     config_path: str = ConfigOption,
 ) -> None:
@@ -59,6 +62,11 @@ def add(
     if rss:
         entry["rss_url"] = rss
     if apple_id:
+        try:
+            apple_id = feeds.extract_apple_id(apple_id)
+        except feeds.FeedError as exc:
+            console.print(f"[red]✗[/] {exc}")
+            raise typer.Exit(1) from exc
         entry["apple_id"] = apple_id
         if not rss:
             console.print(f"Resolviendo feed desde Apple id [bold]{apple_id}[/]…")

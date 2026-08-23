@@ -30,7 +30,8 @@ uv run podcast-kb sync --dry-run
 
 ```bash
 podcast-kb init                             # esquema SQLite local
-podcast-kb add --slug X --apple-id 123456   # resuelve el feed vía Apple y lo añade al YAML
+podcast-kb add --slug X --apple-id 1723256857          # ID de Apple…
+podcast-kb add --slug X --apple-id pod.link/1723256857 # …o la URL, da igual
 podcast-kb add --slug X --rss https://...   # o directamente por URL
 podcast-kb resolve --dry-run                # resuelve las feedUrl vía Apple y las valida
 podcast-kb resolve                          # …y las escribe en el YAML
@@ -58,7 +59,9 @@ YAML, que es la trampa de §2.1.
 Si Apple no devuelve `feedUrl`, el show es exclusivo de plataforma y no hay RSS.
 Alternativas, por orden:
 
-1. **pod.link/&lt;apple_id&gt;** — usa el mismo ID y suele enlazar el RSS.
+1. **pod.link/&lt;id&gt;** — usa el mismo identificador que Apple, así que si ya
+   tienes la URL de pod.link puedes pasarla tal cual a `--apple-id`. Su página
+   enlaza el RSS directamente.
 2. **iVoox**: `https://www.ivoox.com/feed_fg_f<ID>_filtro_1.xml`, con el ID que
    aparece en la URL del podcast (`..._sq_f12364979_1.html` → `12364979`).
 3. La web del podcast o su newsletter: casi siempre publican el enlace RSS.

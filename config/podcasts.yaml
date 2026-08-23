@@ -9,9 +9,10 @@ podcasts:
     title: Inteligencia Artificial Semanal
     authors: Gargoyles Devon
     language: es
-    apple_id: "1723256857"
-    # Pista alternativa si Apple fallara: iVoox f12364979
-    # https://www.ivoox.com/feed_fg_f12364979_filtro_1.xml
+    apple_id: "1723256857"   # = https://pod.link/1723256857
+    # Alternativas si Apple no devolviera feedUrl:
+    #   iVoox f12364979 → https://www.ivoox.com/feed_fg_f12364979_filtro_1.xml
+    #   YouTube UC4ewDq9cCPd9eqA88M6yvEQ
 
   - slug: test-de-turing
     title: El Test de Turing - IA Aplicada a Negocio

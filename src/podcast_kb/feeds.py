@@ -28,6 +28,18 @@ PSC_NS = "http://podlove.org/simple-chapters"
 
 _EP_NUM_RE = re.compile(r"(?:^|[#\s])(?:ep(?:isodio|isode)?\.?\s*)?(\d{1,4})\b", re.I)
 
+# pod.link y Apple Podcasts comparten el mismo identificador numérico, así que
+# ambas URLs valen como entrada y no hay que hacer que el usuario lo extraiga.
+_APPLE_ID_RE = re.compile(
+    r"""(?x)
+    ^(?P<bare>\d{6,12})$
+    | pod\.link/(?P<podlink>\d{6,12})
+    | podcasts\.apple\.com/(?:[^/]+/)?podcast/(?:[^/]+/)?id(?P<apple>\d{6,12})
+    | /id(?P<idform>\d{6,12})
+    """,
+    re.I,
+)
+
 
 class FeedError(RuntimeError):
     pass
@@ -79,8 +91,25 @@ class FeedResult:
     not_modified: bool = False
 
 
+def extract_apple_id(value: str) -> str:
+    """Acepta un ID suelto o una URL de pod.link / Apple Podcasts.
+
+    Los tres identifican el mismo podcast con el mismo número, así que pedirle
+    al usuario que lo recorte a mano solo añade una forma de equivocarse.
+    """
+    value = (value or "").strip()
+    match = _APPLE_ID_RE.search(value)
+    if not match:
+        raise FeedError(
+            f"No encuentro un ID de Apple Podcasts en {value!r}. "
+            "Vale el número suelto, una URL de pod.link o una de podcasts.apple.com."
+        )
+    return next(g for g in match.groups() if g)
+
+
 def resolve_feed_from_apple_id(apple_id: str, *, client: httpx.Client | None = None) -> dict:
     """Resuelve feedUrl y metadatos desde un ID de Apple Podcasts (§2.3)."""
+    apple_id = extract_apple_id(str(apple_id))
     owns_client = client is None
     client = client or httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=30)
     try:

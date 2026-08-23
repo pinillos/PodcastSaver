@@ -41,14 +41,14 @@ class TestResolveDesdeApple:
     def test_sin_resultados(self):
         c = client_for({"itunes": httpx.Response(200, json={"resultCount": 0, "results": []})})
         with pytest.raises(FeedError, match="no devuelve resultados"):
-            resolve_feed_from_apple_id("999", client=c)
+            resolve_feed_from_apple_id("1723256857", client=c)
 
     def test_podcast_exclusivo_sin_feedurl(self):
         """Un show solo-Spotify no expone feedUrl: hay que decirlo claro."""
         payload = {"resultCount": 1, "results": [{"collectionName": "Exclusivo"}]}
         c = client_for({"itunes": httpx.Response(200, json=payload)})
         with pytest.raises(FeedError, match="no expone feedUrl"):
-            resolve_feed_from_apple_id("111", client=c)
+            resolve_feed_from_apple_id("1723736263", client=c)
 
 
 class TestInspectFeed:
@@ -93,3 +93,38 @@ class TestInspectFeed:
         c = httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True)
         info = inspect_feed("https://vieja.com/f.xml", client=c)
         assert info.ok and info.final_url == "https://nueva.com/f.xml"
+
+
+class TestExtractAppleId:
+    """pod.link y Apple comparten identificador: aceptar ambas formas."""
+
+    @pytest.mark.parametrize(
+        "entrada",
+        [
+            "1723256857",
+            "https://pod.link/1723256857",
+            "http://pod.link/1723256857",
+            "https://pod.link/1723256857/episode/abc123",
+            "pod.link/1723256857",
+            "https://podcasts.apple.com/es/podcast/inteligencia-artificial-semanal/id1723256857",
+            "https://podcasts.apple.com/us/podcast/x/id1723256857?i=1000675294760",
+            "https://podcasts.apple.com/podcast/id1723256857",
+        ],
+    )
+    def test_todas_las_formas_dan_el_mismo_id(self, entrada):
+        from podcast_kb.feeds import extract_apple_id
+
+        assert extract_apple_id(entrada) == "1723256857"
+
+    @pytest.mark.parametrize("entrada", ["", "   ", "no-hay-id-aqui", "https://ejemplo.com/feed.xml"])
+    def test_entrada_invalida_da_un_error_util(self, entrada):
+        from podcast_kb.feeds import extract_apple_id
+
+        with pytest.raises(FeedError, match="No encuentro un ID"):
+            extract_apple_id(entrada)
+
+    def test_resolve_acepta_una_url_directamente(self):
+        c = client_for({"itunes.apple.com": httpx.Response(200, json=APPLE_OK)})
+        out = resolve_feed_from_apple_id("https://pod.link/1723256857", client=c)
+        assert out["apple_id"] == "1723256857"
+        assert out["rss_url"] == "https://anchor.fm/s/e1671d44/podcast/rss"
