@@ -51,6 +51,25 @@ class EpisodeItem:
 
 
 @dataclass
+class FeedInspection:
+    """Diagnóstico de un feed antes de darlo por bueno (§2.3)."""
+
+    rss_url: str
+    final_url: str | None = None
+    status: int | None = None
+    ok: bool = False
+    error: str | None = None
+    title: str | None = None
+    language: str | None = None
+    n_items: int = 0
+    first_published: str | None = None
+    last_published: str | None = None
+    n_transcripts: int = 0
+    n_chapters: int = 0
+    trackers: list[str] = field(default_factory=list)
+
+
+@dataclass
 class FeedResult:
     title: str | None
     language: str | None
@@ -270,3 +289,54 @@ def parse_feed(raw_xml: bytes) -> FeedResult:
             )
         )
     return result
+
+
+def inspect_feed(rss_url: str, *, client: httpx.Client | None = None) -> FeedInspection:
+    """Descarga y valida un feed, sin escribir nada.
+
+    Comprueba lo que hay que comprobar antes de dar de alta un podcast: que
+    responde, cuál es la URL final tras redirecciones (§2.3: se persiste esa,
+    no la inicial), que parsea, y si trae Podcasting 2.0 (§4.4), que puede
+    ahorrar el backfill entero.
+    """
+    from .urls import TRACKER_HOSTS, unwrap_trackers
+
+    inspection = FeedInspection(rss_url=rss_url)
+    owns_client = client is None
+    client = client or httpx.Client(timeout=60, follow_redirects=True)
+    try:
+        resp = client.get(rss_url, headers={"User-Agent": USER_AGENT})
+        inspection.status = resp.status_code
+        inspection.final_url = str(resp.url)
+        resp.raise_for_status()
+        parsed = parse_feed(resp.content)
+    except httpx.HTTPError as exc:
+        inspection.error = f"{type(exc).__name__}: {exc}"
+        return inspection
+    except Exception as exc:  # noqa: BLE001 - el diagnóstico no debe romper el flujo
+        inspection.error = f"{type(exc).__name__}: {exc}"
+        return inspection
+    finally:
+        if owns_client:
+            client.close()
+
+    inspection.ok = True
+    inspection.title = parsed.title
+    inspection.language = parsed.language
+    inspection.n_items = len(parsed.items)
+    if parsed.items:
+        fechas = sorted(i.published_at for i in parsed.items)
+        inspection.first_published, inspection.last_published = fechas[0], fechas[-1]
+    inspection.n_transcripts = sum(1 for i in parsed.items if i.feed_transcript_url)
+    inspection.n_chapters = sum(1 for i in parsed.items if i.feed_chapters_url)
+
+    vistos: set[str] = set()
+    for item in parsed.items:
+        host = httpx.URL(item.audio_url).host
+        if host and host.lower() in TRACKER_HOSTS:
+            vistos.add(host.lower())
+        real = httpx.URL(unwrap_trackers(item.audio_url)).host
+        if real:
+            vistos.add(f"→ {real}")
+    inspection.trackers = sorted(vistos)
+    return inspection

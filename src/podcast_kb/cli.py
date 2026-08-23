@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
+import httpx
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -74,6 +75,125 @@ def add(
     entries.append(entry)
     config.save_podcasts(entries, path)
     console.print(f"[green]✓[/] [bold]{slug}[/] añadido a {path}")
+
+
+@app.command()
+def resolve(
+    slug: Optional[str] = typer.Option(None, "--slug", help="Resuelve solo este podcast."),
+    force: bool = typer.Option(
+        False, "--force", help="Re-resuelve también los que ya tienen rss_url."
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Muestra el diagnóstico sin escribir en el YAML."
+    ),
+    config_path: str = ConfigOption,
+) -> None:
+    """Resuelve las feedUrl reales vía Apple y valida que sirven.
+
+    Escribe la URL final (tras redirecciones) en podcasts.yaml, que es la
+    que hay que persistir (§2.3), y avisa si el feed ya trae transcripciones
+    publicadas (§4.4).
+    """
+    try:
+        entries = config.load_podcasts(config_path)
+    except config.ConfigError as exc:
+        console.print(f"[red]✗[/] {exc}")
+        raise typer.Exit(1) from exc
+
+    objetivo = [e for e in entries if not slug or e["slug"] == slug]
+    if not objetivo:
+        console.print(f"[red]✗[/] No hay ningún podcast con slug [bold]{slug}[/].")
+        raise typer.Exit(1)
+
+    cambios = 0
+    fallos = 0
+    with httpx.Client(timeout=60, follow_redirects=True) as client:
+        for entry in objetivo:
+            console.print(f"\n[bold]{entry['slug']}[/]")
+
+            rss_url = entry.get("rss_url")
+            if (not rss_url or force) and entry.get("apple_id"):
+                console.print(f"  Apple id {entry['apple_id']} → ", end="")
+                try:
+                    resolved = feeds.resolve_feed_from_apple_id(entry["apple_id"], client=client)
+                except (feeds.FeedError, httpx.HTTPError) as exc:
+                    console.print(f"[red]{exc}[/]")
+                    fallos += 1
+                    continue
+                rss_url = resolved["rss_url"]
+                console.print(f"[green]{rss_url}[/]")
+                if resolved.get("title"):
+                    console.print(f"  Apple dice: {resolved['title']} — {resolved.get('authors')}")
+                    _avisar_si_no_cuadra(entry, resolved)
+
+            if not rss_url:
+                console.print("  [red]✗ sin rss_url ni apple_id resoluble[/]")
+                fallos += 1
+                continue
+
+            info = feeds.inspect_feed(rss_url, client=client)
+            _render_inspection(info)
+            if not info.ok:
+                fallos += 1
+                continue
+
+            # §2.3: se persiste la URL final, no la inicial.
+            final = info.final_url or rss_url
+            if entry.get("rss_url") != final:
+                if dry_run:
+                    console.print(f"  [dim]se escribiría rss_url: {final}[/]")
+                else:
+                    entry["rss_url"] = final
+                    cambios += 1
+
+    if cambios and not dry_run:
+        config.save_podcasts(entries, config_path)
+        console.print(f"\n[green]✓[/] {cambios} rss_url actualizadas en {config_path}")
+    elif not dry_run:
+        console.print("\n[dim]Nada que actualizar en el YAML.[/]")
+
+    if fallos:
+        console.print(f"[red]{fallos} feed(s) sin resolver.[/] Ver README para alternativas.")
+        raise typer.Exit(1)
+
+
+def _avisar_si_no_cuadra(entry: dict, resolved: dict) -> None:
+    """§2.1: hay un homónimo. Verificar por autores antes de dar de alta."""
+    esperados = (entry.get("authors") or "").lower()
+    reales = (resolved.get("authors") or "").lower()
+    if not esperados or not reales:
+        return
+    tokens = {t for t in esperados.replace(",", " ").split() if len(t) > 3}
+    if tokens and not any(t in reales for t in tokens):
+        console.print(
+            f"  [yellow]⚠ los autores no cuadran con los del YAML "
+            f"({entry.get('authors')}). ¿Es el podcast correcto? Ver §2.1.[/]"
+        )
+
+
+def _render_inspection(info: feeds.FeedInspection) -> None:
+    if not info.ok:
+        detalle = info.error or f"HTTP {info.status}"
+        console.print(f"  [red]✗ el feed no sirve:[/] {detalle}")
+        return
+
+    console.print(f"  [green]✓[/] {info.title} [dim]({info.language})[/]")
+    if info.final_url and info.final_url != info.rss_url:
+        console.print(f"  [yellow]redirige a:[/] {info.final_url}")
+    rango = ""
+    if info.first_published and info.last_published:
+        rango = f", de {info.first_published[:10]} a {info.last_published[:10]}"
+    console.print(f"  {info.n_items} episodios en el feed{rango}")
+
+    if info.n_transcripts:
+        console.print(
+            f"  [cyan]★ {info.n_transcripts} episodios ya traen transcripción publicada[/] "
+            "[dim](§4.4: nos ahorramos transcribirlos)[/]"
+        )
+    if info.n_chapters:
+        console.print(f"  [cyan]★ {info.n_chapters} episodios traen capítulos del autor[/]")
+    if info.trackers:
+        console.print(f"  [dim]hosting: {', '.join(info.trackers)}[/]")
 
 
 @app.command()

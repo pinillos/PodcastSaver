@@ -32,12 +32,37 @@ uv run podcast-kb sync --dry-run
 podcast-kb init                             # esquema SQLite local
 podcast-kb add --slug X --apple-id 123456   # resuelve el feed vía Apple y lo añade al YAML
 podcast-kb add --slug X --rss https://...   # o directamente por URL
+podcast-kb resolve --dry-run                # resuelve las feedUrl vía Apple y las valida
+podcast-kb resolve                          # …y las escribe en el YAML
 podcast-kb sync --dry-run                   # qué se detectaría, sin escribir ni descargar
 podcast-kb sync --max-episodes 10           # alta real, en lotes acotados
 podcast-kb episodes                         # qué hay y en qué etapa está
 podcast-kb process 1                        # descarga → WAV → Whisper → .md
 podcast-kb bench tramo.wav                  # compara motores y modelos (§5.3)
 ```
+
+### Resolver las feedUrl reales
+
+```bash
+uv run podcast-kb resolve --dry-run   # mira sin tocar nada
+uv run podcast-kb resolve             # escribe rss_url en config/podcasts.yaml
+```
+
+Para cada podcast: pide el `feedUrl` a Apple, descarga el feed, comprueba que
+parsea, y reporta cuántos episodios hay, desde cuándo, qué hosting está detrás
+del tracking, y **si ya trae transcripciones publicadas** (§4.4) — que puede
+ahorrar el backfill entero. Persiste la URL **final tras redirecciones**, no la
+inicial (§2.3), y avisa si los autores que devuelve Apple no cuadran con los del
+YAML, que es la trampa de §2.1.
+
+Si Apple no devuelve `feedUrl`, el show es exclusivo de plataforma y no hay RSS.
+Alternativas, por orden:
+
+1. **pod.link/&lt;apple_id&gt;** — usa el mismo ID y suele enlazar el RSS.
+2. **iVoox**: `https://www.ivoox.com/feed_fg_f<ID>_filtro_1.xml`, con el ID que
+   aparece en la URL del podcast (`..._sq_f12364979_1.html` → `12364979`).
+3. La web del podcast o su newsletter: casi siempre publican el enlace RSS.
+4. `--rss` directo: `podcast-kb add --slug X --rss https://…`
 
 ### Requisitos para transcribir
 
