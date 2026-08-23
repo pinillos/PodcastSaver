@@ -1,0 +1,3 @@
+En este episodio hablamos de LLMs, embeddings, fine-tuning, RAG, agents and MCP,
+context window, tokens, inference, quantization and reasoning, benchmarking models
+from OpenAI, Anthropic, Google, Meta, Mistral and DeepSeek.

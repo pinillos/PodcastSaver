@@ -1,0 +1,21 @@
+# Modelos de whisper y cachés pesadas
+models/
+cache/
+
+# Estado local del pipeline
+db/local.sqlite
+db/local.sqlite-journal
+db/local.sqlite-wal
+db/local.sqlite-shm
+
+# Secretos
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+*.egg-info/

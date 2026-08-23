@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"
+     xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"
+     xmlns:podcast="https://podcastindex.org/namespace/1.0">
+  <channel>
+    <title>El Test de Turing - IA Aplicada a Negocio</title>
+    <language>es-ES</language>
+    <itunes:author>Álvaro Peña, Arnau Vendrell, Víctor Mollá</itunes:author>
+
+    <item>
+      <title>Agentes IA: Destripando los enigmas con un PRO</title>
+      <guid isPermaLink="false">e1671d44-0001</guid>
+      <pubDate>Tue, 15 Jul 2026 06:00:00 GMT</pubDate>
+      <link>https://open.spotify.com/episode/17erE3notlcJ3pyFXqY3YW</link>
+      <description>Hablamos de agentes con Daniel Ávila.</description>
+      <itunes:duration>1:03:02</itunes:duration>
+      <itunes:episode>121</itunes:episode>
+      <enclosure url="https://dts.podtrac.com/redirect.mp3/traffic.megaphone.fm/EP121.mp3?dest-id=99"
+                 length="60512000" type="audio/mpeg"/>
+      <podcast:transcript url="https://ejemplo.com/ep121.vtt" type="text/vtt" language="es"/>
+      <podcast:chapters url="https://ejemplo.com/ep121-chapters.json" type="application/json+chapters"/>
+    </item>
+
+    <item>
+      <title>MCP en producción — Ep. 120</title>
+      <guid>e1671d44-0002</guid>
+      <pubDate>Tue, 08 Jul 2026 06:00:00 GMT</pubDate>
+      <itunes:duration>2705</itunes:duration>
+      <enclosure url="https://traffic.megaphone.fm/EP120.mp3" length="43280000" type="audio/mpeg"/>
+    </item>
+
+    <item>
+      <title>Episodio sin guid ni duración</title>
+      <pubDate>Tue, 01 Jul 2026 06:00:00 GMT</pubDate>
+      <enclosure url="https://traffic.megaphone.fm/EP119.mp3" type="audio/mpeg"/>
+    </item>
+
+    <item>
+      <title>Entrada sin audio que debe ignorarse</title>
+      <guid>e1671d44-0004</guid>
+      <pubDate>Tue, 24 Jun 2026 06:00:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>

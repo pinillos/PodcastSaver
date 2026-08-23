@@ -1,0 +1,5 @@
+En este episodio hablamos de LLMs, embeddings, fine-tuning, RAG, agentes y MCP,
+de context window, tokens, inference, quantization y reasoning, con benchmarks
+de modelos de OpenAI, Anthropic, Google, Meta, Mistral y DeepSeek, y herramientas
+como Hugging Face, Cursor, Copilot y Claude Code, hablando de deploy, datasets,
+open source, guardrails, hallucinations, chain of thought y vibe coding.

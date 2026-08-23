@@ -1,0 +1,27 @@
+# Indexado desatendido: chunk + embed + carga en Supabase al hacer push
+# de nuevas transcripciones (§3.2 del diseño).
+#
+# Pendiente: la etapa src/index/ no existe todavía (Fase 2). Este workflow
+# queda declarado para no perder la decisión de arquitectura.
+
+name: index
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "transcripts/**/*.md"
+  workflow_dispatch:
+
+jobs:
+  index:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      # - run: uv run podcast-kb index --changed-only
+      #   env:
+      #     SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      #     SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      - run: echo "Etapa de indexado pendiente (Fase 2)."

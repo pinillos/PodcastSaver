@@ -1,0 +1,32 @@
+# Fuente de verdad del alta de podcasts (§4.1 del diseño).
+# SQLite es caché derivada: si divergen, gana este fichero.
+#
+# `rss_url` se puede dejar vacío si hay `apple_id`: el sync lo resuelve vía
+# itunes.apple.com/lookup (§2.3) y lo cachea en SQLite.
+
+podcasts:
+  - slug: ia-semanal
+    title: Inteligencia Artificial Semanal
+    authors: Gargoyles Devon
+    language: es
+    apple_id: "1723256857"
+    # Pista alternativa si Apple fallara: iVoox f12364979
+    # https://www.ivoox.com/feed_fg_f12364979_filtro_1.xml
+
+  - slug: test-de-turing
+    title: El Test de Turing - IA Aplicada a Negocio
+    authors: Álvaro Peña, Arnau Vendrell, Víctor Mollá
+    language: es
+    apple_id: "1771978939"
+    rss_url: https://anchor.fm/s/e1671d44/podcast/rss
+
+  - slug: la-tertul-ia
+    title: "La Tertul-IA: Inteligencia Artificial y más"
+    authors: Lu Martín, Frankie Carrero, Corti
+    language: es
+    apple_id: "1723736263"
+    # OJO (§2.2): estos episodios salen también dentro de "Growth: el podcast
+    # de Product Hackers" (Apple 1236733939). NO dar de alta ese feed sin
+    # tener en cuenta el dedupe global por enclosure.
+    # OJO (§2.1): no confundir con "La TERTULia de la Inteligencia Artificial"
+    # (Apple 1669083682), que es otro podcast distinto.

@@ -1,0 +1,8 @@
+# Normalización post-Whisper (§5.7, §5.8). TSV: patrón<TAB>reemplazo<TAB>nota
+# Se aplica sobre el texto ya transcrito, con búsqueda insensible a mayúsculas.
+fain tuning	fine-tuning	anglicismo mal transcrito
+fine tuning	fine-tuning	forma sin guion
+prompt in	prompting	corte habitual
+embedin(g)?s	embeddings	grafía fonética
+Subtítulos realizados por la comunidad de Amara.org		alucinación clásica en silencios
+Gracias por ver el vídeo		alucinación de cola de episodio
