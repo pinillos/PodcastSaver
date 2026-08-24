@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <!-- only required fields here for simplicity -->
+
+    <!-- pretend it is pod cast name -->
+    <title>Inteligencia Artificial Semanal</title>
+    <!-- description that will be shown on podcast view -->
+    <description>Las novedades semanales en inteligencia artificial</description>
+    <!-- podcast logo/image/avatar -->
+    <itunes:image href="https://podcast.lamesalimon.com/lamesalimon_podcast_apple.png" />
+    <link>https://lamesalimon.com</link>
+    <!-- spoken language is required, in form of "language-country" -->
+    <language>es-es</language>
+    <itunes:owner>
+        <itunes:email>gargoylesdevon@gmail.com</itunes:email>
+    </itunes:owner>
+    <itunes:author>Gargoyles Devon</itunes:author>
+    <itunes:email>gargoylesdevon@gmail.com</itunes:email>
+    <description>
+        Las novedades sobre Inteligencia Artificial de cada semana como "excusa" para hablar sobre Inteligencia Artificial y su impacto en los negocios y la sociedad
+    </description>
+    <!-- category, one of https://podcasters.apple.com/support/1691-apple-podcasts-categories, do not forget escaping -->
+    <itunes:category text="Technology"/>
+    <itunes:category text="Business"><itunes:category text="Management"/></itunes:category>
+    <itunes:category text="News"><itunes:category text="Tech News"/></itunes:category>
+    <!-- doesn't contain explicit language or adult content -->
+    <itunes:explicit>false</itunes:explicit>
+
+    <!-- episodes - aka chapters, per each mp3 file we will have one item -->
+        <item>
+      <title>Sakana NAMMs, Google Agents, SmolAgents</title>
+      <itunes:title>Sakana NAMMs, Google Agents, SmolAgent</itunes:title>
+      <pubDate>Tue, 07 Jan 2025 12:00:00 GMT</pubDate>
+      <itunes:duration>1528</itunes:duration>
+      <enclosure
+        length="23164800"
+        type="audio/mpeg"
+          url="https://podcast.lamesalimon.com/episodes/podcast_20250107.mp3"
+      />
+      <description> <![CDATA[
+          Un podcast de Gargoyles Devon.<br><a href="https://pod.link/1723256857">Podcast</a> | <a href="https://www.youtube.com/channel/UC4ewDq9cCPd9eqA88M6yvEQ">Youtube</a> | <a href="https://lamesalimon.com">Contacto</a>
+      ]]> </description>
+      <guid>20250107</guid>
+    </item>
+    <item>
+      <title>Llama 4, Reward Models, Test de Turing</title>
+      <itunes:title>Llama 4, Reward Models, Test de Turing</itunes:title>
+      <pubDate>Tue, 08 Apr 2025 12:00:00 GMT</pubDate>
+      <itunes:duration>3836</itunes:duration>
+      <enclosure
+        length="58435320"
+        type="audio/mpeg"
+          url="https://podcast.lamesalimon.com/episodes/podcast_20250408.mp3"
+      />
+      <description> <![CDATA[
+          Presentación LLM de difusión: <a href="https://hkunlp.github.io/blog/2025/dream/">aquí</a>.<br>
+          Un podcast de Gargoyles Devon.<br><a href="https://pod.link/1723256857">Podcast</a> | <a href="https://www.youtube.com/channel/UC4ewDq9cCPd9eqA88M6yvEQ">Youtube</a> | <a href="https://lamesalimon.com">Contacto</a>
+      ]]> </description>
+      <guid>20250408</guid>
+    </item>
+    <item>
+      <title>[DESARROLLO] Veo 3, Gemini Difussion, Hybrid LRM</title>
+      <itunes:title>[DESARROLLO] Veo 3, Gemini Difussion, Hybrid LRM</itunes:title>
+      <pubDate>Tue, 27 May 2025 23:00:00 GMT</pubDate>
+      <itunes:duration>2499</itunes:duration>
+      <enclosure
+        length="43541544"
+        type="audio/mpeg"
+          url="https://podcast.lamesalimon.com/episodes/podcast_20250527_2.mp3"
+      />
+      <description> <![CDATA[
+          Vídeo de Optimus: <a href="https://x.com/elonmusk/status/1925050052273143948">aquí</a>.<br>
+          Un podcast de Gargoyles Devon.<br><a href="https://pod.link/1723256857">Podcast</a> | <a href="https://www.youtube.com/channel/UC4ewDq9cCPd9eqA88M6yvEQ">Youtube</a> | <a href="https://lamesalimon.com">Contacto</a>
+      ]]> </description>
+      <guid>2025052702</guid>
+    </item>
+    <item>
+      <title>Google SL2T, Watermarking de Anthropic, Publicidad en ChatGPT</title>
+      <itunes:title>Google SL2T, Watermarking de Anthropic, Publicidad en ChatGPT</itunes:title>
+      <pubDate>Tue, 18 Aug 2026 20:00:00 GMT</pubDate>
+      <itunes:duration>3116</itunes:duration>
+      <enclosure
+        length="40212048"
+        type="audio/mpeg"
+          url="https://podcast.lamesalimon.com/episodes/podcast_20260818.mp3"
+      />
+      <description> <![CDATA[
+          Un podcast de Gargoyles Devon (gargoylesdevon@gmail.com | https://www.amazon.es/s?rh=p_27%3AGargoyles+Devon)<br>Podcast: <a href="https://pod.link/1723256857">https://pod.link/1723256857</a> | Youtube: <a href="https://www.youtube.com/channel/UC4ewDq9cCPd9eqA88M6yvEQ">https://www.youtube.com/channel/UC4ewDq9cCPd9eqA88M6yvEQ</a>
+      ]]> </description>
+      <guid>20260818</guid>
+    </item>
+  </channel>
+</rss>

@@ -10,7 +10,12 @@ podcasts:
     authors: Gargoyles Devon
     language: es
     apple_id: "1723256857"   # = https://pod.link/1723256857
-    # Alternativas si Apple no devolviera feedUrl:
+    # Feed de origen, autoalojado y verificado: 95 episodios (ene-2025 →
+    # ago-2026, ~68 h). Sin prefijos de tracking ni publicidad dinámica, así
+    # que los timestamps no derivan (§9.1). No numera episodios y no publica
+    # transcripciones, así que no hay atajo de §4.4.
+    rss_url: https://podcast.lamesalimon.com/lamesalimon.xml
+    # Otros orígenes del mismo podcast, por si el principal cayera:
     #   iVoox f12364979 → https://www.ivoox.com/feed_fg_f12364979_filtro_1.xml
     #   YouTube UC4ewDq9cCPd9eqA88M6yvEQ
 

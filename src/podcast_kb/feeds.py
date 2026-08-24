@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 import xml.etree.ElementTree as ET
+from urllib.parse import urlsplit
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -34,7 +35,17 @@ PSC_NS = "http://podlove.org/simple-chapters"
 MEDIA_NS = "http://search.yahoo.com/mrss/"
 ATOM_NS = "http://www.w3.org/2005/Atom"
 
-_EP_NUM_RE = re.compile(r"(?:^|[#\s])(?:ep(?:isodio|isode)?\.?\s*)?(\d{1,4})\b", re.I)
+# Solo con marcador explícito. Un número suelto en el título casi nunca es el
+# episodio: en un podcast de IA es la versión de un modelo ("Llama 4",
+# "Veo 3", "Gemini 3"), y colarlo como episode_number contamina el front
+# matter y el título del .md. Es preferible no tener número a tener uno falso.
+_EP_NUM_RE = re.compile(
+    r"""(?xi)
+    (?: \#\s*(?P<hash>\d{1,4})
+      | \bep (?:isodio|isode)? \.?\s* (?P<ep>\d{1,4})
+      ) \b
+    """
+)
 
 # pod.link y Apple Podcasts comparten el mismo identificador numérico, así que
 # ambas URLs valen como entrada y no hay que hacer que el usuario lo extraiga.
@@ -238,7 +249,9 @@ def extract_episode_number(title: str, entry: Any = None) -> int | None:
             except (TypeError, ValueError):
                 pass
     match = _EP_NUM_RE.search(title or "")
-    return int(match.group(1)) if match else None
+    if not match:
+        return None
+    return int(match.group("hash") or match.group("ep"))
 
 
 def _find_ns(item: ET.Element, tag: str) -> ET.Element | None:
@@ -337,6 +350,28 @@ def _pick_audio(entry: Any, item_el: ET.Element | None) -> tuple[str, int | None
     return candidatos[0][0], candidatos[0][1]
 
 
+def _clean_episode_url(raw: str | None, base: str | None) -> str | None:
+    """Descarta un `link` que no sea realmente una URL.
+
+    Por la spec de RSS, un `<guid>` sin `isPermaLink="false"` se considera
+    permalink, y feedparser lo promueve a `entry.link`. Los feeds hechos a
+    mano omiten ese atributo constantemente mientras usan guids que no son
+    URLs (`20250107`), así que sin este filtro `episode_url` acaba siendo un
+    enlace roto en el front matter y en la UI.
+    """
+    if not raw:
+        return None
+    raw = raw.strip()
+    if urlsplit(raw).scheme.lower() in ("http", "https"):
+        return raw
+    # Una ruta absoluta del sitio sí es un enlace legítimo; un token suelto
+    # sin barras (el guid promovido) no lo es. Validar DESPUÉS de resolver
+    # no vale: la resolución le pondría esquema a cualquier cosa.
+    if raw.startswith("/") and base:
+        return resolve_relative(raw, base)
+    return None
+
+
 def _entry_guid(entry: Any, audio_url: str) -> str:
     """Identidad del episodio, por orden de preferencia (§4.2)."""
     guid = (entry.get("id") or "").strip()
@@ -393,7 +428,7 @@ def parse_feed(raw_xml: bytes, base_url: str | None = None) -> FeedResult:
                 duration_sec=parse_duration(entry.get("itunes_duration")),
                 audio_bytes=audio_bytes,
                 description=entry.get("summary"),
-                episode_url=entry.get("link"),
+                episode_url=_clean_episode_url(entry.get("link"), base),
                 episode_number=extract_episode_number(title, entry),
                 feed_transcript_url=extra.get("feed_transcript_url"),
                 feed_transcript_type=extra.get("feed_transcript_type"),
