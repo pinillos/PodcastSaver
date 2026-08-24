@@ -64,6 +64,10 @@ CREATE TABLE IF NOT EXISTS episodes (
   feed_transcript_url  TEXT,
   feed_transcript_type TEXT,
   feed_chapters_url    TEXT,
+  -- Capítulos del autor extraídos de las show notes (§6). El .md los emite
+  -- tal cual; sin ellos habría que pagarle a un LLM por reinventarlos.
+  chapters             TEXT,
+  chapters_source      TEXT NOT NULL DEFAULT 'none',
 
   -- Progreso: stage + timestamps independientes (§4.3). No es una máquina de
   -- estados lineal porque el enriquecimiento es re-ejecutable sobre episodios
@@ -128,12 +132,36 @@ def connect(path: Path | str = DEFAULT_DB_PATH) -> sqlite3.Connection:
 
 def init_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
+    migrate(conn)
     conn.execute(
         "INSERT INTO meta (key, value) VALUES ('schema_version', ?) "
         "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
         (str(SCHEMA_VERSION),),
     )
     conn.commit()
+
+
+# Columnas añadidas después de la v1 del esquema. SQLite no tiene
+# ALTER TABLE IF NOT EXISTS, así que se comprueba antes.
+_MIGRATIONS: dict[str, str] = {
+    "chapters": "ALTER TABLE episodes ADD COLUMN chapters TEXT",
+    "chapters_source": (
+        "ALTER TABLE episodes ADD COLUMN chapters_source TEXT NOT NULL DEFAULT 'none'"
+    ),
+}
+
+
+def migrate(conn: sqlite3.Connection) -> list[str]:
+    """Aplica las columnas que falten en una base de datos ya existente."""
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(episodes)")}
+    applied = []
+    for column, statement in _MIGRATIONS.items():
+        if column not in existing:
+            conn.execute(statement)
+            applied.append(column)
+    if applied:
+        conn.commit()
+    return applied
 
 
 def upsert_podcast(conn: sqlite3.Connection, podcast: dict) -> int:
@@ -170,15 +198,21 @@ def insert_episode_if_new(conn: sqlite3.Connection, episode: dict) -> bool:
         "published_at", "duration_sec", "audio_url", "audio_bytes",
         "description", "episode_url", "language",
         "feed_transcript_url", "feed_transcript_type", "feed_chapters_url",
-        "stage", "discovered_at",
+        "chapters", "chapters_source", "stage", "discovered_at",
     )
     values = {c: episode.get(c) for c in cols}
     values["stage"] = "discovered"
     values["discovered_at"] = utcnow()
+    values["chapters_source"] = episode.get("chapters_source") or "none"
 
+    # ON CONFLICT DO NOTHING en vez de INSERT OR IGNORE: OR IGNORE se traga
+    # TODOS los errores de constraint, incluidos los NOT NULL, así que una
+    # columna nueva mal rellenada descartaría episodios en silencio. Esto
+    # solo silencia los conflictos de unicidad, que es lo que queremos.
     placeholders = ", ".join(f":{c}" for c in cols)
     cur = conn.execute(
-        f"INSERT OR IGNORE INTO episodes ({', '.join(cols)}) VALUES ({placeholders})",
+        f"INSERT INTO episodes ({', '.join(cols)}) VALUES ({placeholders}) "
+        f"ON CONFLICT DO NOTHING",
         values,
     )
     conn.commit()

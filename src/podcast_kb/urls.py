@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from urllib.parse import urljoin, urlsplit, urlunsplit
+from urllib.parse import unquote, urljoin, urlsplit, urlunsplit
 
 # Hosts que actúan como redirectores/medidores por delante del audio real.
 TRACKER_HOSTS = frozenset({
@@ -43,12 +43,27 @@ _TRACKER_PATH_PREFIXES = (
     re.compile(r"^/[a-z0-9]+/", re.I),  # último recurso: un id opaco
 )
 
+# Algunos hostings (Anchor/Spotify) meten la URL real percent-encoded dentro
+# del path, tras un identificador que cambia por episodio:
+#   anchor.fm/s/<show>/podcast/play/<id>/https%3A%2F%2F<cdn>%2F....mp3
+# Quedarse con la externa haría que el mismo audio publicado en otro feed
+# tuviera una identidad distinta, que es justo lo que el dedupe debe evitar.
+_EMBEDDED_URL_RE = re.compile(r"/(https?(?:%3A|:)(?:%2F|/){2}.+)$", re.I)
+
 _MAX_UNWRAPS = 6
 
 
 def _unwrap_once(url: str) -> str | None:
     """Quita una capa de tracking. Devuelve None si no había ninguna."""
     parts = urlsplit(url)
+
+    # Una URL incrustada en el path manda, venga del host que venga.
+    embedded = _EMBEDDED_URL_RE.search(parts.path)
+    if embedded:
+        candidate = unquote(embedded.group(1))
+        if urlsplit(candidate).scheme in ("http", "https") and urlsplit(candidate).netloc:
+            return candidate
+
     if parts.hostname is None or parts.hostname.lower() not in TRACKER_HOSTS:
         return None
 

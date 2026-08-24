@@ -24,6 +24,10 @@ podcasts:
     authors: Álvaro Peña, Arnau Vendrell, Víctor Mollá
     language: es
     apple_id: "1771978939"
+    # Verificado: 166 episodios (may-2025 → ago-2026, ~239 h). Anchor incrusta
+    # la URL real de CloudFront en el enclosure, así que la identidad se toma
+    # de esa (§4.2). 58 episodios traen índice de capítulos en las show notes.
+    # Es hosting de Spotify: asumir publicidad dinámica (§9.1).
     rss_url: https://anchor.fm/s/e1671d44/podcast/rss
 
   - slug: la-tertul-ia

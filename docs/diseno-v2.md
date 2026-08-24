@@ -378,11 +378,14 @@ Mitigaciones, por orden de efectividad:
 El Air es *fanless*: en lotes largos hay throttling. Órdenes de magnitud en un M2/M3 con
 Metal:
 
-| Modelo | Factor tiempo real | 1 h de audio | Backfill ~350 eps (~260 h) |
+| Modelo | Factor tiempo real | 1 h de audio | Backfill (~306 h medidas, 2 de 3 feeds) |
 |---|---|---|---|
-| `medium-q5_0` | ~5–8× | 8–12 min | 35–50 h |
-| `large-v3-turbo-q5_0` | ~8–15× | 4–8 min | 18–33 h |
-| `large-v3-q5_0` | ~2–3× | 20–30 min | 85–130 h |
+| `medium-q5_0` | ~5–8× | 8–12 min | 38–61 h |
+| `large-v3-turbo-q5_0` | ~8–15× | 4–8 min | 20–38 h |
+| `large-v3-q5_0` | ~2–3× | 20–30 min | 102–153 h |
+
+Volumen real medido sobre dos de los tres feeds: **261 episodios, 306 h** de audio
+(IA Semanal 95 eps / 68 h; El Test de Turing 166 eps / 239 h). Falta La Tertul-IA.
 
 Restar un 20–30% en lotes largos por throttling sostenido. Prácticas:
 

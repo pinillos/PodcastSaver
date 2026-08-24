@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import sqlite3
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -150,6 +151,8 @@ def process_episode(
         vad=vad,
         needs_review=outcome.needs_review,
         review_reason=outcome.review_reason,
+        chapters=json.loads(row["chapters"]) if row["chapters"] else None,
+        chapters_source=row["chapters_source"] or "none",
     )
     outcome.md_path = export.write_episode(data, root=transcripts_root)
 

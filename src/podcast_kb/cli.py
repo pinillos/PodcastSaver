@@ -199,7 +199,12 @@ def _render_inspection(info: feeds.FeedInspection) -> None:
             "[dim](§4.4: nos ahorramos transcribirlos)[/]"
         )
     if info.n_chapters:
-        console.print(f"  [cyan]★ {info.n_chapters} episodios traen capítulos del autor[/]")
+        console.print(f"  [cyan]★ {info.n_chapters} episodios declaran capítulos[/]")
+    if info.n_note_chapters:
+        console.print(
+            f"  [cyan]★ {info.n_note_chapters} episodios traen índice de capítulos en "
+            "las show notes[/] [dim](§6: nos ahorramos generarlos con un LLM)[/]"
+        )
     if info.trackers:
         console.print(f"  [dim]hosting: {', '.join(info.trackers)}[/]")
 
@@ -238,7 +243,8 @@ def _render(report: ingest.SyncReport, *, dry_run: bool) -> None:
     table.add_column("Estado")
     table.add_column("Vistos", justify="right")
     table.add_column("Nuevos", justify="right")
-    table.add_column("Con transcripción en el feed", justify="right")
+    table.add_column("Transcripción en feed", justify="right")
+    table.add_column("Con capítulos", justify="right")
 
     for item in report.podcasts:
         if not item.ok:
@@ -253,6 +259,7 @@ def _render(report: ingest.SyncReport, *, dry_run: bool) -> None:
             str(item.seen),
             str(item.new_count),
             str(item.with_feed_transcript) if item.with_feed_transcript else "-",
+            str(item.with_chapters) if item.with_chapters else "-",
         )
     console.print(table)
 

@@ -18,6 +18,7 @@ from typing import Any
 import feedparser
 import httpx
 
+from .chapters import extract_chapters
 from .urls import enclosure_sha256, resolve_relative
 
 USER_AGENT = "podcast-kb/0.1 (+base de conocimiento personal; contacto en el repo)"
@@ -79,6 +80,8 @@ class EpisodeItem:
     feed_transcript_url: str | None = None
     feed_transcript_type: str | None = None
     feed_chapters_url: str | None = None
+    chapters: list[dict] = field(default_factory=list)
+    chapters_source: str = "none"
 
 
 @dataclass
@@ -97,6 +100,7 @@ class FeedInspection:
     last_published: str | None = None
     n_transcripts: int = 0
     n_chapters: int = 0
+    n_note_chapters: int = 0
     self_link: str | None = None
     trackers: list[str] = field(default_factory=list)
 
@@ -418,6 +422,21 @@ def parse_feed(raw_xml: bytes, base_url: str | None = None) -> FeedResult:
             continue  # published_at es NOT NULL: sin fecha no se da de alta
 
         extra = extras[index] if index < len(extras) else {}
+        description = entry.get("summary")
+        duration = parse_duration(entry.get("itunes_duration"))
+
+        # §6: preferir siempre los capítulos del autor. El fichero declarado
+        # con <podcast:chapters> manda; si no lo hay, valen los del índice de
+        # las show notes.
+        note_chapters: list[dict] = []
+        chapters_source = "none"
+        if extra.get("feed_chapters_url"):
+            chapters_source = "feed"
+        else:
+            note_chapters = extract_chapters(description, duration_sec=duration)
+            if note_chapters:
+                chapters_source = "notes"
+
         result.items.append(
             EpisodeItem(
                 guid=guid,
@@ -425,14 +444,16 @@ def parse_feed(raw_xml: bytes, base_url: str | None = None) -> FeedResult:
                 published_at=published,
                 audio_url=audio_url,
                 enclosure_sha256=enclosure_sha256(audio_url),
-                duration_sec=parse_duration(entry.get("itunes_duration")),
+                duration_sec=duration,
                 audio_bytes=audio_bytes,
-                description=entry.get("summary"),
+                description=description,
                 episode_url=_clean_episode_url(entry.get("link"), base),
                 episode_number=extract_episode_number(title, entry),
                 feed_transcript_url=extra.get("feed_transcript_url"),
                 feed_transcript_type=extra.get("feed_transcript_type"),
                 feed_chapters_url=extra.get("feed_chapters_url"),
+                chapters=note_chapters,
+                chapters_source=chapters_source,
             )
         )
     return result
@@ -476,6 +497,7 @@ def inspect_feed(rss_url: str, *, client: httpx.Client | None = None) -> FeedIns
         inspection.first_published, inspection.last_published = fechas[0], fechas[-1]
     inspection.n_transcripts = sum(1 for i in parsed.items if i.feed_transcript_url)
     inspection.n_chapters = sum(1 for i in parsed.items if i.feed_chapters_url)
+    inspection.n_note_chapters = sum(1 for i in parsed.items if i.chapters_source == "notes")
     inspection.self_link = parsed.self_link
 
     vistos: set[str] = set()

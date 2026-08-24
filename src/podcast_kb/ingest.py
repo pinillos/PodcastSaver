@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from dataclasses import dataclass, field
 
@@ -19,6 +20,7 @@ class PodcastSyncReport:
     seen: int = 0
     new: list[feeds.EpisodeItem] = field(default_factory=list)
     with_feed_transcript: int = 0
+    with_chapters: int = 0
 
     @property
     def new_count(self) -> int:
@@ -83,6 +85,8 @@ def sync_podcast(
     for item in items:
         if item.feed_transcript_url:
             report.with_feed_transcript += 1
+        if item.chapters or item.feed_chapters_url:
+            report.with_chapters += 1
         if dry_run:
             if not _is_known(conn, podcast_id, item):
                 report.new.append(item)
@@ -91,6 +95,10 @@ def sync_podcast(
             **item.__dict__,
             "podcast_id": podcast_id,
             "language": default_language,
+            # SQLite no tiene tipo lista: los capítulos van como JSON.
+            "chapters": json.dumps(item.chapters, ensure_ascii=False)
+            if item.chapters
+            else None,
         }
         if db.insert_episode_if_new(conn, payload):
             report.new.append(item)
