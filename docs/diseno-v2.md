@@ -819,7 +819,7 @@ el modelo. La firma lo refleja.
 ```sql
 create or replace function hybrid_search(
   q             text,
-  q_embedding   halfvec(1024),
+  q_embedding   halfvec(1024) default null,
   lang          text    default 'es',
   podcast_ids   uuid[]  default null,
   date_from     timestamptz default null,
@@ -865,11 +865,15 @@ with lex as (
   ) t
 ),
 vec as (
+  -- Sin embedding de consulta, esta rama queda vacía y la fusión degrada a
+  -- búsqueda léxica pura. Es lo que permite que la UI funcione antes de
+  -- decidir dónde se calculan los embeddings (§8.2).
   select id, row_number() over (order by dist) as rnk
   from (
     select c.id, c.embedding <=> q_embedding as dist
     from chunks c
-    where c.language = lang
+    where q_embedding is not null
+      and c.language = lang
       and c.embedding is not null
       and (podcast_ids    is null or c.podcast_id = any(podcast_ids))
       and (date_from      is null or c.published_at >= date_from)
@@ -900,6 +904,11 @@ order by score desc
 limit result_limit;
 $$;
 ```
+
+**El embedding de la consulta es opcional.** Si no se pasa, la rama vectorial
+queda vacía y RRF degrada a búsqueda léxica pura. Sin esto, la UI no podría
+funcionar hasta tener resuelto dónde se calculan los embeddings, y ese es
+justamente el TODO que el diseño deja abierto hasta la Fase 3.
 
 **Por qué los filtros se repiten en las dos ramas en vez de factorizarse en una CTE común.**
 Una CTE referenciada más de una vez **no se inlinea** en Postgres: se materializa. Si los
@@ -959,6 +968,25 @@ exacto.
 audio.src = audio_url;
 audio.currentTime = Math.max(0, start_sec - 10);   // margen por §9.1
 ```
+
+**Requisito del hosting: peticiones `Range`.** Saltar dentro de un audio exige que el
+servidor responda `206 Partial Content` a las peticiones con cabecera `Range`. Sin eso el
+navegador solo puede reproducir desde el principio: `audio.currentTime = 932` se ignora
+silenciosamente y vuelve a 0. Comprobado en el navegador. Los CDN de podcasts lo soportan,
+pero conviene verificarlo por podcast al dar de alta el feed, y **es un requisito para la
+caché de audio de §9.1**: lo que sirva las copias cacheadas tiene que soportar `Range`
+también.
+
+**Detalle de implementación:** el `<audio>` nace con `preload="none"` para no descargar
+decenas de MB al abrir la página. Pero entonces asignar `src` no dispara ninguna carga, así
+que `loadedmetadata` nunca llega y el salto no ocurre. Hay que llamar a `load()`
+explícitamente. Es un fallo que no se ve leyendo el código: el usuario pulsa un resultado y
+no pasa nada.
+
+**Lo que se muestra no es el chunk entero.** Un chunk son ~90 s, unas 200 palabras: la
+unidad correcta para indexar y para saltar, y un muro de texto en una pantalla de móvil. La
+UI recorta un extracto de ~200 caracteres centrado en la primera coincidencia, con un enlace
+para desplegar el fragmento completo.
 
 Por qué no basta `#t=<segundos>`, que era la apuesta de la v1: un enlace a un `.mp3` desde
 Chrome en Android abre el gestor de descargas o delega en una app externa, y el fragmento se

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>podcast-kb</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f1115">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header>
+  <h1>podcast-kb</h1>
+  <form id="buscador" autocomplete="off">
+    <input id="q" type="search" placeholder="Buscar en las transcripciones…"
+           enterkeyhint="search" autofocus>
+    <button type="submit" aria-label="Buscar">Buscar</button>
+  </form>
+  <details id="filtros">
+    <summary>Filtros</summary>
+    <div class="rejilla">
+      <label>Podcast
+        <select id="f-podcast"><option value="">todos</option></select>
+      </label>
+      <label>Hablante <input id="f-speaker" type="text" placeholder="cualquiera"></label>
+      <label>Desde <input id="f-desde" type="date"></label>
+      <label>Hasta <input id="f-hasta" type="date"></label>
+    </div>
+  </details>
+</header>
+
+<main id="resultados" aria-live="polite">
+  <p class="vacio">Escribe algo y pulsa buscar.</p>
+</main>
+
+<!-- El reproductor vive en la propia página (§9): un enlace a un .mp3 desde
+     Chrome en Android abre el gestor de descargas y pierde el fragmento #t=. -->
+<div id="reproductor" hidden>
+  <button id="cerrar" aria-label="Cerrar reproductor">×</button>
+  <div class="meta"><strong id="p-titulo"></strong><span id="p-momento"></span></div>
+  <audio id="audio" controls preload="none"></audio>
+  <p class="aviso" id="p-aviso" hidden></p>
+</div>
+
+<script src="app.js" type="module"></script>
+</body>
+</html>

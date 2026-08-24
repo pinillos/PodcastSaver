@@ -2,11 +2,11 @@
 -- Generado desde docs/diseno-v2.md. Editar allí y regenerar.
 
 -- El embedding de la consulta se calcula FUERA (Edge Function):
--- Postgres no ejecuta el modelo.
+-- Postgres no ejecuta el modelo. Si no se pasa, la búsqueda es solo léxica.
 
 create or replace function hybrid_search(
   q             text,
-  q_embedding   halfvec(1024),
+  q_embedding   halfvec(1024) default null,
   lang          text    default 'es',
   podcast_ids   uuid[]  default null,
   date_from     timestamptz default null,
@@ -52,11 +52,15 @@ with lex as (
   ) t
 ),
 vec as (
+  -- Sin embedding de consulta, esta rama queda vacía y la fusión degrada a
+  -- búsqueda léxica pura. Es lo que permite que la UI funcione antes de
+  -- decidir dónde se calculan los embeddings (§8.2).
   select id, row_number() over (order by dist) as rnk
   from (
     select c.id, c.embedding <=> q_embedding as dist
     from chunks c
-    where c.language = lang
+    where q_embedding is not null
+      and c.language = lang
       and c.embedding is not null
       and (podcast_ids    is null or c.podcast_id = any(podcast_ids))
       and (date_from      is null or c.published_at >= date_from)

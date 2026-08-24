@@ -1,0 +1,9 @@
+{
+  "functionsUrl": "https://<proyecto>.supabase.co/functions/v1",
+  "podcasts": [
+    { "slug": "ia-semanal",         "title": "Inteligencia Artificial Semanal" },
+    { "slug": "test-de-turing",     "title": "El Test de Turing" },
+    { "slug": "la-tertul-ia",       "title": "La Tertul-IA" },
+    { "slug": "monos-estocasticos", "title": "monos estocásticos" }
+  ]
+}
