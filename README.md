@@ -41,6 +41,8 @@ podcast-kb episodes                         # qué hay y en qué etapa está
 podcast-kb process 1                        # → .md (usa el subtítulo del feed si lo hay)
 podcast-kb process 1 --force-whisper        # …o transcribe aunque lo haya
 podcast-kb bench tramo.wav                  # compara motores y modelos (§5.3)
+podcast-kb index --dry-run                  # cuántos chunks saldrían
+podcast-kb index --dsn "postgresql://…"     # chunking + embeddings + carga
 ```
 
 ### Resolver las feedUrl reales
@@ -133,8 +135,16 @@ derivada más estado de ejecución. Si divergen, gana el YAML.
 - [ ] **Correr los benchmarks en el Mac** y fijar motor y modelo
 - [ ] **Validación humana** con el criterio de §5.10
 
-Fases siguientes: búsqueda funcionando con pocos episodios (2), decisión de
-diarización antes del backfill (3), volumen (4).
+**Fase 2 — búsqueda funcionando**
+
+- [x] Chunking de ~90 s con 20% de solape, alineado a los capítulos del autor
+- [x] Interfaz de embeddings: `hashing` para desarrollo, e5/bge-m3 en local
+- [x] Carga incremental por doble checksum, reutilizando vectores ya guardados
+- [x] Esquema y RPC `hybrid_search` verificados contra Postgres 16
+- [ ] **PWA de búsqueda** con `<audio>` y salto al segundo (§9)
+- [ ] Fijar el modelo de embeddings y desplegar en Supabase
+
+Fases siguientes: decisión de diarización antes del backfill (3), volumen (4).
 
 ## Desarrollo
 

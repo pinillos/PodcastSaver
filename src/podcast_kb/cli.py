@@ -395,6 +395,93 @@ def process(
         console.print(f"  [yellow]⚠ no se encontró {missing}: se transcribió sin él[/]")
 
 
+@app.command(name="index")
+def index_cmd(
+    dsn: Optional[str] = typer.Option(
+        None, "--dsn", envvar="PODCAST_KB_DSN",
+        help="Cadena de conexión a Postgres. También por PODCAST_KB_DSN.",
+    ),
+    embedder: str = typer.Option(
+        "hashing", "--embedder", help="hashing (dev) | e5 | bge-m3"
+    ),
+    root: str = typer.Option("transcripts", "--root", help="Directorio de .md."),
+    force: bool = typer.Option(False, "--force", help="Reindexa todo, ignorando checksums."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="No escribe en la base de datos."),
+) -> None:
+    """Carga los .md en Postgres: chunking, embeddings e índice híbrido (§8).
+
+    Lee solo el repositorio, así que puede correr en un GitHub Action con el
+    Mac apagado (§3.2).
+    """
+    from . import embeddings as emb_mod
+    from . import index as index_mod
+
+    documentos = index_mod.discover(root)
+    if not documentos:
+        console.print(f"[yellow]No hay .md en {root}/[/]. ¿Has corrido `podcast-kb process`?")
+        raise typer.Exit(1)
+
+    if dry_run:
+        total = 0
+        for path in documentos:
+            try:
+                doc = index_mod.load_document(path)
+                piezas = index_mod.chunks_for(doc)
+            except (ValueError, OSError) as exc:
+                console.print(f"[red]✗[/] {path}: {exc}")
+                continue
+            total += len(piezas)
+            console.print(f"  {len(piezas):>4} chunks  {path.name}")
+        console.print(f"\n[bold]{len(documentos)}[/] episodios, [bold]{total}[/] chunks. "
+                      "[dim](dry-run: no se ha escrito nada)[/]")
+        return
+
+    if not dsn:
+        console.print(
+            "[red]✗[/] Falta la cadena de conexión: usa --dsn o la variable "
+            "PODCAST_KB_DSN."
+        )
+        raise typer.Exit(1)
+
+    try:
+        import psycopg
+    except ImportError as exc:
+        console.print("[red]✗[/] Falta psycopg. Instálalo con `uv pip install 'psycopg[binary]'`.")
+        raise typer.Exit(1) from exc
+
+    try:
+        embedder_obj = emb_mod.get_embedder(embedder)
+    except emb_mod.EmbeddingError as exc:
+        console.print(f"[red]✗[/] {exc}")
+        raise typer.Exit(1) from exc
+
+    if embedder_obj.name == "hashing-dev":
+        console.print(
+            "[yellow]⚠ embedder de desarrollo:[/] los vectores no capturan significado. "
+            "La búsqueda léxica funciona; la semántica no."
+        )
+
+    with psycopg.connect(dsn) as conn:
+        with conn.cursor() as cur:
+            report = index_mod.index_all(cur, embedder_obj, root=root, force=force)
+        conn.commit()
+
+    table = Table(title="Indexado")
+    table.add_column("métrica"); table.add_column("valor", justify="right")
+    table.add_row("episodios escaneados", str(report.scanned))
+    table.add_row("reindexados", str(report.inserted))
+    table.add_row("solo metadatos", str(report.metadata_only))
+    table.add_row("chunks", str(report.chunks))
+    table.add_row("embeddings calculados", str(report.embedded))
+    table.add_row("embeddings reutilizados", str(report.cached))
+    console.print(table)
+
+    for error in report.errors:
+        console.print(f"[red]✗[/] {error}")
+    if report.errors:
+        raise typer.Exit(1)
+
+
 @app.command()
 def bench(
     wav: str = typer.Argument(..., help="WAV ya normalizado. Usa un tramo de tertulia."),
