@@ -38,7 +38,8 @@ podcast-kb resolve                          # …y las escribe en el YAML
 podcast-kb sync --dry-run                   # qué se detectaría, sin escribir ni descargar
 podcast-kb sync --max-episodes 10           # alta real, en lotes acotados
 podcast-kb episodes                         # qué hay y en qué etapa está
-podcast-kb process 1                        # descarga → WAV → Whisper → .md
+podcast-kb process 1                        # → .md (usa el subtítulo del feed si lo hay)
+podcast-kb process 1 --force-whisper        # …o transcribe aunque lo haya
 podcast-kb bench tramo.wav                  # compara motores y modelos (§5.3)
 ```
 
@@ -120,6 +121,9 @@ derivada más estado de ejecución. Si divergen, gana el YAML.
 - [ ] **Resolver los 3 `feedUrl` reales** y validar el parseo contra ellos
 
 **Fase 1 — camino completo sobre un episodio**
+
+- [x] Importación de subtítulos publicados por el feed (VTT/SRT), que evita
+      descargar el audio y pasar Whisper en 128 episodios (148 h)
 
 - [x] Descarga idempotente y normalización a 16 kHz mono PCM
 - [x] whisper.cpp con VAD y glosario; mlx-whisper tras la misma interfaz

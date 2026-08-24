@@ -263,3 +263,157 @@ class TestRutasDeConfiguracion:
         assert len(outcome.missing_config) == 2  # glosario y fixups
         assert any("glossary" in m for m in outcome.missing_config)
         assert any("fixups" in m for m in outcome.missing_config)
+
+
+VTT_DEL_FEED = """WEBVTT
+
+00:00:00.000 --> 00:00:04.200
+<v Antonio Ortiz>Muy buenas, bienvenidos una semana más.
+
+00:00:04.200 --> 00:00:11.000
+<v Matías S. Zavia>Hoy hablamos de agentes y de fain tuning.
+
+00:01:02.000 --> 00:01:09.000
+<v Antonio Ortiz>El protocolo MCP conecta herramientas externas.
+"""
+
+
+@pytest.fixture
+def conn_con_subtitulos(tmp_path):
+    """Un episodio cuyo feed ya publica la transcripción en VTT."""
+    c = db.connect(tmp_path / "kb2.sqlite")
+    db.init_schema(c)
+    pid = db.upsert_podcast(c, {
+        "slug": "monos-estocasticos", "title": "monos estocásticos",
+        "authors": "Antonio Ortiz, Matías S. Zavia",
+        "rss_url": "https://cuonda.com/monos-estocasticos/feed", "language": "es",
+    })
+    db.insert_episode_if_new(c, {
+        "podcast_id": pid, "guid": "g-vtt", "enclosure_sha256": "abc-vtt",
+        "title": "Es el momento de desacelerar la IA",
+        "published_at": "2026-07-30T06:00:00+00:00",
+        "audio_url": "https://cuonda.com/download/1670584.mp3",
+        "language": "es", "duration_sec": 4520,
+        "feed_transcript_url": "https://cuonda.com/x/transcription",
+        "feed_transcript_type": "text/vtt",
+    })
+    return c
+
+
+@pytest.fixture
+def sin_descarga_de_subtitulos(monkeypatch):
+    monkeypatch.setattr(pipeline, "fetch_subtitles", lambda url, client=None: VTT_DEL_FEED)
+
+
+@pytest.mark.usefixtures("sin_red", "sin_descarga_de_subtitulos")
+class TestTranscripcionDelFeed:
+    """§4.4: si el feed la publica con marcas de tiempo, no se transcribe."""
+
+    def test_no_toca_whisper_ni_ffmpeg(self, conn_con_subtitulos, tmp_path, monkeypatch):
+        def explota(*a, **kw):  # pragma: no cover
+            raise AssertionError("no debería llamarse: el feed ya trae la transcripción")
+
+        monkeypatch.setattr(pipeline.transcribe, "transcribe", explota)
+        monkeypatch.setattr(pipeline.audio, "normalize_audio", explota)
+        monkeypatch.setattr(pipeline.audio, "download_audio", explota)
+
+        outcome = pipeline.process_episode(
+            conn_con_subtitulos, 1,
+            transcripts_root=tmp_path / "t", cache_dir=tmp_path / "c",
+        )
+        assert outcome.source == "feed"
+        assert outcome.md_path.exists()
+
+    def test_el_front_matter_lo_declara(self, conn_con_subtitulos, tmp_path):
+        outcome = pipeline.process_episode(
+            conn_con_subtitulos, 1,
+            transcripts_root=tmp_path / "t", cache_dir=tmp_path / "c",
+        )
+        fm = yaml.safe_load(split_front_matter(outcome.md_path.read_text(encoding="utf-8"))[0])
+        assert fm["transcript"]["engine"] == "feed"
+        assert fm["transcript"]["model"] == "text/vtt"
+        assert fm["transcript"]["diarized"] is True
+        assert fm["transcript"]["vad"] is False
+        assert fm["source"] == "feed-transcript"
+
+    def test_no_inventa_datos_del_audio(self, conn_con_subtitulos, tmp_path):
+        """Los timestamps son los del máster del autor, no los de una copia
+        nuestra: medir su duración o su checksum sería mentir (§9.1)."""
+        outcome = pipeline.process_episode(
+            conn_con_subtitulos, 1,
+            transcripts_root=tmp_path / "t", cache_dir=tmp_path / "c",
+        )
+        fm = yaml.safe_load(split_front_matter(outcome.md_path.read_text(encoding="utf-8"))[0])
+        assert "checksum_audio" not in fm
+        assert "transcribed_duration_sec" not in fm
+        assert fm["duration_sec"] == 4520  # la que declara el feed sí se conserva
+
+    def test_conserva_los_hablantes(self, conn_con_subtitulos, tmp_path):
+        outcome = pipeline.process_episode(
+            conn_con_subtitulos, 1,
+            transcripts_root=tmp_path / "t", cache_dir=tmp_path / "c",
+        )
+        assert outcome.diarized
+        cuerpo = outcome.md_path.read_text(encoding="utf-8")
+        assert "(Antonio Ortiz)" in cuerpo and "(Matías S. Zavia)" in cuerpo
+
+    def test_los_fixups_tambien_se_aplican(self, conn_con_subtitulos, tmp_path):
+        outcome = pipeline.process_episode(
+            conn_con_subtitulos, 1,
+            transcripts_root=tmp_path / "t", cache_dir=tmp_path / "c",
+        )
+        cuerpo = outcome.md_path.read_text(encoding="utf-8")
+        assert "fine-tuning" in cuerpo and "fain tuning" not in cuerpo
+
+    def test_force_whisper_lo_ignora(self, conn_con_subtitulos, tmp_path, fake_bin):
+        outcome = pipeline.process_episode(
+            conn_con_subtitulos, 1, prefer_feed_transcript=False,
+            transcripts_root=tmp_path / "t", cache_dir=tmp_path / "c",
+        )
+        assert outcome.source == "whisper"
+        assert outcome.realtime_factor is not None
+
+    def test_texto_plano_no_vale_como_transcripcion(self, conn_con_subtitulos, tmp_path, fake_bin):
+        """Sin marcas de tiempo hay que transcribir igual."""
+        conn_con_subtitulos.execute(
+            "UPDATE episodes SET feed_transcript_type = 'plain/txt' WHERE id = 1"
+        )
+        conn_con_subtitulos.commit()
+        outcome = pipeline.process_episode(
+            conn_con_subtitulos, 1,
+            transcripts_root=tmp_path / "t", cache_dir=tmp_path / "c",
+        )
+        assert outcome.source == "whisper"
+
+
+@pytest.mark.usefixtures("sin_red")
+class TestErroresDeRed:
+    def test_un_subtitulo_inalcanzable_no_revienta_el_cli(
+        self, conn_con_subtitulos, tmp_path, monkeypatch
+    ):
+        """§4.3: los fallos se registran para reintento, no se propagan crudos."""
+        from typer.testing import CliRunner
+
+        from podcast_kb.cli import app
+
+        def falla(url, client=None):
+            raise httpx.ConnectError("no hay ruta al host")
+
+        monkeypatch.setattr(pipeline, "fetch_subtitles", falla)
+        monkeypatch.chdir(tmp_path)
+
+        db_path = tmp_path / "kb2.sqlite"
+        result = CliRunner().invoke(app, ["process", "1", "--db", str(db_path)])
+
+        assert result.exit_code == 1
+        assert "ConnectError" in result.output
+        assert "Traceback" not in result.output
+
+        conn_con_subtitulos.close()
+        import sqlite3
+
+        c = sqlite3.connect(db_path)
+        c.row_factory = sqlite3.Row
+        row = c.execute("SELECT attempts, last_error FROM episodes WHERE id = 1").fetchone()
+        assert row["attempts"] == 1
+        assert "ConnectError" in row["last_error"]

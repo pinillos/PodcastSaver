@@ -232,7 +232,17 @@ Antes de descargar el audio, mirar si el ítem trae:
 - **`<podcast:chapters>`** (JSON) o `<psc:chapters>` (formato antiguo) — capítulos con
   timestamps, exactamente el campo `chapters[]` del §6, sin coste de LLM.
 
-Aunque solo uno de los tres podcasts lo tenga, comprobarlo cuesta nada y puede ahorrar horas.
+Un feed puede declarar **varios formatos por episodio**. Hay que elegir por preferencia,
+no por orden de aparición: `text/vtt` > SubRip > JSON > texto plano. El texto plano **no
+sirve** para lo que hacemos —sin marcas de tiempo no hay salto al minuto (§5.12)—, así que
+un episodio que solo lo traiga hay que transcribirlo igual.
+
+Los subtítulos WebVTT pueden traer además el hablante en etiquetas `<v Nombre>`, y
+`<podcast:person>` declara el reparto del episodio: entre los dos resuelven de gratis el
+mapeo de §5.11.
+
+Medido sobre el corpus real: 128 de 566 episodios (148 h) llegan ya transcritos con marcas
+de tiempo. Comprobarlo cuesta un `grep` y ahorra un 22% del backfill.
 
 ### 4.5 Planificación
 

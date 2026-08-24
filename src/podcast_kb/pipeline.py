@@ -8,7 +8,10 @@ import sqlite3
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import audio, db, export, fixups as fixups_mod, segments as seg_mod, transcribe
+import httpx
+
+from . import audio, db, export, fixups as fixups_mod, segments as seg_mod, subtitles, transcribe
+from .feeds import USER_AGENT
 from .paths import config_path
 
 CACHE_AUDIO = Path("cache/audio")
@@ -27,6 +30,8 @@ class EpisodeOutcome:
     missing_config: list[str] = field(default_factory=list)
     needs_review: bool = False
     review_reason: str | None = None
+    source: str = "whisper"
+    diarized: bool = False
 
 
 def sha256_file(path: Path, *, chunk: int = 1 << 20) -> str:
@@ -46,11 +51,24 @@ def load_prompt(path: Path | str | None) -> str | None:
     return " ".join(path.read_text(encoding="utf-8").split())
 
 
+def fetch_subtitles(url: str, *, client: httpx.Client | None = None) -> str:
+    owns_client = client is None
+    client = client or httpx.Client(timeout=120, follow_redirects=True)
+    try:
+        resp = client.get(url, headers={"User-Agent": USER_AGENT})
+        resp.raise_for_status()
+        return resp.text
+    finally:
+        if owns_client:
+            client.close()
+
+
 def process_episode(
     conn: sqlite3.Connection,
     episode_id: int,
     *,
     engine: str = "whisper.cpp",
+    prefer_feed_transcript: bool = True,
     model: str = transcribe.DEFAULT_MODEL,
     vad: bool = True,
     word_timestamps: bool = False,
@@ -70,49 +88,82 @@ def process_episode(
     outcome = EpisodeOutcome(slug=row["podcast_slug"], title=row["title"])
     language = row["language"] or "es"
     stem = f"{row['published_at'][:10]}-{seg_mod.slugify(row['title'])}"
-
-    # 1. Descarga (idempotente).
-    mp3 = Path(cache_dir) / row["podcast_slug"] / f"{stem}.mp3"
-    audio.download_audio(row["audio_url"], mp3, expected_bytes=row["audio_bytes"])
-    conn.execute(
-        "UPDATE episodes SET local_audio = ?, downloaded_at = ?, stage = 'downloaded' "
-        "WHERE id = ?",
-        (str(mp3), db.utcnow(), episode_id),
-    )
-    conn.commit()
-
-    # 2. Normalización a 16 kHz mono PCM.
-    wav = mp3.with_suffix(".wav")
-    audio.normalize_audio(mp3, wav)
-    # La duración del audio realmente transcrito, que no es la del feed (§9.1).
-    transcribed_duration = audio.probe_duration(wav)
-
-    # 3. Transcripción.
     glossary_path = Path(row["glossary_path"]) if row["glossary_path"] else config_path(
         f"glossary.{language}.txt"
     )
     prompt = load_prompt(glossary_path)
-    if prompt is None:
-        # Un glosario que no se carga degrada la transcripción sin dar error.
-        outcome.missing_config.append(str(glossary_path))
-    result = transcribe.transcribe(
-        wav,
-        Path(cache_dir) / row["podcast_slug"] / stem,
-        engine=engine,
-        model=model,
-        language=language,
-        prompt=prompt,
-        vad=vad,
-        word_timestamps=word_timestamps,
-        audio_duration_sec=transcribed_duration,
-    )
-    outcome.elapsed_sec = result.elapsed_sec
-    outcome.realtime_factor = result.realtime_factor
 
-    # 4. Post-proceso: eco del prompt, fixups y detector de bucles (§5.7, §5.8).
-    segments = result.segments
-    if prompt:
-        outcome.prompt_echo_stripped = fixups_mod.strip_prompt_echo(segments, prompt)
+    feed_url = row["feed_transcript_url"]
+    usar_feed = (
+        prefer_feed_transcript
+        and feed_url
+        and subtitles.looks_timestamped(row["feed_transcript_type"])
+    )
+
+    mp3: Path | None = None
+    transcribed_duration: float | None = None
+    engine_name = engine
+    model_name = model
+
+    if usar_feed:
+        # El feed ya publica la transcripción con marcas de tiempo (§4.4): no
+        # hay que descargar el audio ni pasar Whisper. Los timestamps son los
+        # del máster del autor, así que tampoco tiene sentido medir la
+        # duración de una copia nuestra (§9.1).
+        segments = subtitles.parse_subtitles(fetch_subtitles(feed_url))
+        outcome.source = "feed"
+        engine_name = "feed"
+        model_name = row["feed_transcript_type"] or "subtitles"
+        conn.execute(
+            "UPDATE episodes SET transcribed_at = ?, stage = 'transcribed' WHERE id = ?",
+            (db.utcnow(), episode_id),
+        )
+        conn.commit()
+    else:
+        # 1. Descarga (idempotente).
+        mp3 = Path(cache_dir) / row["podcast_slug"] / f"{stem}.mp3"
+        audio.download_audio(row["audio_url"], mp3, expected_bytes=row["audio_bytes"])
+        conn.execute(
+            "UPDATE episodes SET local_audio = ?, downloaded_at = ?, stage = 'downloaded' "
+            "WHERE id = ?",
+            (str(mp3), db.utcnow(), episode_id),
+        )
+        conn.commit()
+
+        # 2. Normalización a 16 kHz mono PCM.
+        wav = mp3.with_suffix(".wav")
+        audio.normalize_audio(mp3, wav)
+        # La duración del audio realmente transcrito, que no es la del feed (§9.1).
+        transcribed_duration = audio.probe_duration(wav)
+
+        # 3. Transcripción.
+        if prompt is None:
+            # Un glosario que no se carga degrada la transcripción sin dar error.
+            outcome.missing_config.append(str(glossary_path))
+        result = transcribe.transcribe(
+            wav,
+            Path(cache_dir) / row["podcast_slug"] / stem,
+            engine=engine,
+            model=model,
+            language=language,
+            prompt=prompt,
+            vad=vad,
+            word_timestamps=word_timestamps,
+            audio_duration_sec=transcribed_duration,
+        )
+        outcome.elapsed_sec = result.elapsed_sec
+        outcome.realtime_factor = result.realtime_factor
+        segments = result.segments
+        engine_name = result.engine
+        model_name = Path(result.model).stem or result.model
+        if prompt:
+            outcome.prompt_echo_stripped = fixups_mod.strip_prompt_echo(segments, prompt)
+
+        if not keep_wav and wav.exists():
+            wav.unlink()
+
+    # 4. Post-proceso: fixups y detector de bucles (§5.7, §5.8).
+    outcome.diarized = any(s.speaker for s in segments)
     fixups_path = fixups_mod.default_fixups_path()
     if not fixups_path.exists():
         outcome.missing_config.append(str(fixups_path))
@@ -142,13 +193,15 @@ def process_episode(
         authors=authors,
         episode_number=row["episode_number"],
         duration_sec=row["duration_sec"],
-        transcribed_duration_sec=int(transcribed_duration),
+        transcribed_duration_sec=int(transcribed_duration) if transcribed_duration else None,
         episode_url=row["episode_url"],
-        checksum_audio=f"sha256:{sha256_file(mp3)}",
-        engine=result.engine,
-        model=Path(result.model).stem or result.model,
-        glossary=glossary_path.stem if prompt else None,
-        vad=vad,
+        checksum_audio=f"sha256:{sha256_file(mp3)}" if mp3 else None,
+        engine=engine_name,
+        model=Path(model_name).stem if not usar_feed else model_name,
+        glossary=glossary_path.stem if (prompt and not usar_feed) else None,
+        vad=vad and not usar_feed,
+        diarized=outcome.diarized,
+        source="feed-transcript" if usar_feed else "rss",
         needs_review=outcome.needs_review,
         review_reason=outcome.review_reason,
         chapters=json.loads(row["chapters"]) if row["chapters"] else None,
@@ -161,14 +214,11 @@ def process_episode(
         "  transcribed_duration_sec = ?, checksum_audio = ?, needs_review = ?, "
         "  transcribed_at = ?, exported_at = ?, stage = 'exported' WHERE id = ?",
         (
-            str(outcome.md_path), result.engine, data.model, int(transcribed_duration),
+            str(outcome.md_path), engine_name, data.model,
+            int(transcribed_duration) if transcribed_duration else None,
             data.checksum_audio, 1 if outcome.needs_review else 0,
             db.utcnow(), db.utcnow(), episode_id,
         ),
     )
     conn.commit()
-
-    if not keep_wav and wav.exists():
-        wav.unlink()
-
     return outcome

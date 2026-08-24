@@ -345,6 +345,10 @@ def process(
     keep_wav: bool = typer.Option(
         False, "--keep-wav", help="Conserva el WAV normalizado por si se diariza (§3.3)."
     ),
+    force_whisper: bool = typer.Option(
+        False, "--force-whisper",
+        help="Transcribe con Whisper aunque el feed publique subtítulos (§4.4).",
+    ),
     db_path: str = DbOption,
 ) -> None:
     """Camino completo sobre un episodio: descarga → WAV → Whisper → .md."""
@@ -354,18 +358,28 @@ def process(
         outcome = pipeline.process_episode(
             conn, episode_id, engine=engine, model=model, vad=not no_vad,
             word_timestamps=word_timestamps, keep_wav=keep_wav,
+            prefer_feed_transcript=not force_whisper,
         )
-    except (ValueError, OSError, RuntimeError) as exc:
+    except (ValueError, OSError, RuntimeError, httpx.HTTPError) as exc:
+        # Un fallo de red o de un binario externo se registra para reintento
+        # (§4.3), no se escupe como traceback.
         console.print(f"[red]✗[/] {type(exc).__name__}: {exc}")
         conn.execute(
             "UPDATE episodes SET attempts = attempts + 1, last_error = ? WHERE id = ?",
-            (str(exc)[:500], episode_id),
+            (f"{type(exc).__name__}: {exc}"[:500], episode_id),
         )
         conn.commit()
         raise typer.Exit(1) from exc
 
     console.print(f"[green]✓[/] {outcome.md_path}")
     console.print(f"  segmentos: {outcome.segments_path}")
+    if outcome.source == "feed":
+        console.print(
+            "  [cyan]★ transcripción tomada del feed[/] "
+            "[dim](§4.4: sin descargar el audio ni pasar Whisper)[/]"
+        )
+    if outcome.diarized:
+        console.print("  [cyan]★ con hablantes[/]")
     if outcome.realtime_factor:
         console.print(
             f"  {outcome.elapsed_sec:.0f}s de cómputo "
