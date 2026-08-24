@@ -20,6 +20,7 @@ class PodcastSyncReport:
     seen: int = 0
     new: list[feeds.EpisodeItem] = field(default_factory=list)
     with_feed_transcript: int = 0
+    with_timed_transcript: int = 0
     with_chapters: int = 0
 
     @property
@@ -85,6 +86,8 @@ def sync_podcast(
     for item in items:
         if item.feed_transcript_url:
             report.with_feed_transcript += 1
+            if item.transcript_has_timestamps:
+                report.with_timed_transcript += 1
         if item.chapters or item.feed_chapters_url:
             report.with_chapters += 1
         if dry_run:
@@ -99,6 +102,7 @@ def sync_podcast(
             "chapters": json.dumps(item.chapters, ensure_ascii=False)
             if item.chapters
             else None,
+            "persons": json.dumps(item.persons, ensure_ascii=False) if item.persons else None,
         }
         if db.insert_episode_if_new(conn, payload):
             report.new.append(item)

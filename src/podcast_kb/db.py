@@ -68,6 +68,9 @@ CREATE TABLE IF NOT EXISTS episodes (
   -- tal cual; sin ellos habría que pagarle a un LLM por reinventarlos.
   chapters             TEXT,
   chapters_source      TEXT NOT NULL DEFAULT 'none',
+  -- Hablantes declarados por el feed (<podcast:person>). Resuelve de gratis
+  -- el mapeo de §5.11, que si no hay que hacer a mano por podcast.
+  persons              TEXT,
 
   -- Progreso: stage + timestamps independientes (§4.3). No es una máquina de
   -- estados lineal porque el enriquecimiento es re-ejecutable sobre episodios
@@ -148,6 +151,7 @@ _MIGRATIONS: dict[str, str] = {
     "chapters_source": (
         "ALTER TABLE episodes ADD COLUMN chapters_source TEXT NOT NULL DEFAULT 'none'"
     ),
+    "persons": "ALTER TABLE episodes ADD COLUMN persons TEXT",
 }
 
 
@@ -198,7 +202,7 @@ def insert_episode_if_new(conn: sqlite3.Connection, episode: dict) -> bool:
         "published_at", "duration_sec", "audio_url", "audio_bytes",
         "description", "episode_url", "language",
         "feed_transcript_url", "feed_transcript_type", "feed_chapters_url",
-        "chapters", "chapters_source", "stage", "discovered_at",
+        "chapters", "chapters_source", "persons", "stage", "discovered_at",
     )
     values = {c: episode.get(c) for c in cols}
     values["stage"] = "discovered"

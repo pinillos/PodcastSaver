@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?><rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:atom="http://www.w3.org/2005/Atom" version="2.0" xmlns:anchor="https://anchor.fm/xmlns" xmlns:podcast="https://podcastindex.org/namespace/1.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:psc="http://podlove.org/simple-chapters">
+	<channel>
+		<title><![CDATA[La Tertul-IA: Inteligencia Artificial y más]]></title>
+		<description><![CDATA[Tertulia semanal sobre Inteligencia Artificial y su aplicación a negocios. Actualidad sobre IA, datos y tendencias. Presentada por Lu Martín, Frankie Carrero y Corti.]]></description>
+		<link>https://tertulIA.mumbler.io/p/la-tertulia</link>
+		<generator>Anchor Podcasts</generator>
+		<lastBuildDate>Wed, 19 Aug 2026 21:08:02 GMT</lastBuildDate>
+		<atom:link href="https://anchor.fm/s/107b28204/podcast/rss" rel="self" type="application/rss+xml"/>
+		<author><![CDATA[La Tertul-IA (Lu, Frankie y Corti)]]></author>
+		<copyright><![CDATA[La Tertul-IA (Lu, Frankie y Corti)]]></copyright>
+		<language><![CDATA[es]]></language>
+		<atom:link rel="hub" href="https://pubsubhubbub.appspot.com/"/>
+		<itunes:author>La Tertul-IA (Lu, Frankie y Corti)</itunes:author>
+		<itunes:summary>Tertulia semanal sobre Inteligencia Artificial y su aplicación a negocios. Actualidad sobre IA, datos y tendencias. Presentada por Lu Martín, Frankie Carrero y Corti.</itunes:summary>
+		<itunes:type>episodic</itunes:type>
+		<itunes:owner>
+			<itunes:name>La Tertul-IA (Lu, Frankie y Corti)</itunes:name>
+			<itunes:email>corti+tertulia@corti.cc</itunes:email>
+		</itunes:owner>
+		<itunes:explicit>false</itunes:explicit>
+		<itunes:category text="Business"/>
+		<itunes:image href="https://d3t3ozftmdmh3i.cloudfront.net/staging/podcast_uploaded_nologo/44141065/44141065-1785358194336-71520409566a2.jpg"/>
+				<item>
+			<title><![CDATA[#89 Infinitas apps que nadie usa, árbitros con IA y el funcionario que le pregunta a ChatGPT]]></title>
+			<description><![CDATA[<p>Esta semana arrancamos con un dato que lo dice todo: el número de apps lanzadas en las stores casi se ha duplicado gracias a la IA... pero el uso real ha caído. La producción ya no es el problema. La distribución, sí. ¿Quién tiene el canal, tiene el poder?</p><p><br></p><p>📧 Suscríbete a nuestra newsletter https://tertulia14.substack.com/</p><p><br></p><p>00:00 – Intro: Episodio 89 y la esperanza de vida de un podcast</p><p>04:30 – Boom de apps con IA pero sin usuarios: producción vs. distribución</p><p>16:00 – Quien tiene el canal, tiene el poder (y eso da miedo)</p><p>28:00 – IA en el boxeo: árbitros evaluados y golpes medidos por algoritmos</p><p>42:00 – El gasto público en ChatGPT se dispara: 1 contrato a más de 13</p><p>52:00 – ElevenLabs + gobierno UK: IA de voz para servicios públicos</p><p>58:00 – Startups españolas de voz IA para ayuntamientos</p><p>1:04:00 – Cierre y la fruta del episodio 🍎</p>
+]]></description>
+			<link>https://podcasters.spotify.com/pod/show/jos-carlos-cortizo-prez/episodes/89-Infinitas-apps-que-nadie-usa--rbitros-con-IA-y-el-funcionario-que-le-pregunta-a-ChatGPT-e3kgsu7</link>
+			<guid isPermaLink="false">8a701c39-e0ed-4143-841f-a5784ff27c2e</guid>
+			<dc:creator><![CDATA[La Tertul-IA (Lu, Frankie y Corti)]]></dc:creator>
+			<pubDate>Tue, 09 Jun 2026 03:58:00 GMT</pubDate>
+			<enclosure url="https://anchor.fm/s/107b28204/podcast/play/121188743/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-5-8%2F425753590-44100-2-21cc5ac294008.mp3" length="72315714" type="audio/mpeg"/>
+			<itunes:summary>&lt;p&gt;Esta semana arrancamos con un dato que lo dice todo: el número de apps lanzadas en las stores casi se ha duplicado gracias a la IA... pero el uso real ha caído. La producción ya no es el problema. La distribución, sí. ¿Quién tiene el canal, tiene el poder?&lt;/p&gt;&lt;p&gt;&lt;br&gt;&lt;/p&gt;&lt;p&gt;📧 Suscríbete a nuestra newsletter https://tertulia14.substack.com/&lt;/p&gt;&lt;p&gt;&lt;br&gt;&lt;/p&gt;&lt;p&gt;00:00 – Intro: Episodio 89 y la esperanza de vida de un podcast&lt;/p&gt;&lt;p&gt;04:30 – Boom de apps con IA pero sin usuarios: producción vs. distribución&lt;/p&gt;&lt;p&gt;16:00 – Quien tiene el canal, tiene el poder (y eso da miedo)&lt;/p&gt;&lt;p&gt;28:00 – IA en el boxeo: árbitros evaluados y golpes medidos por algoritmos&lt;/p&gt;&lt;p&gt;42:00 – El gasto público en ChatGPT se dispara: 1 contrato a más de 13&lt;/p&gt;&lt;p&gt;52:00 – ElevenLabs + gobierno UK: IA de voz para servicios públicos&lt;/p&gt;&lt;p&gt;58:00 – Startups españolas de voz IA para ayuntamientos&lt;/p&gt;&lt;p&gt;1:04:00 – Cierre y la fruta del episodio 🍎&lt;/p&gt;
+</itunes:summary>
+			<itunes:explicit>false</itunes:explicit>
+			<itunes:duration>01:15:19</itunes:duration>
+			<itunes:image href="https://d3t3ozftmdmh3i.cloudfront.net/staging/podcast_uploaded_episode/44141065/44141065-1780945463643-526c47f27d89c.jpg"/>
+			<itunes:episodeType>full</itunes:episodeType>
+		</item>
+		<item>
+			<title><![CDATA[La Triple Burbuja de la IA]]></title>
+			<description><![CDATA[<p>Todo el mundo pregunta si hay una burbuja de la IA. Es la pregunta equivocada: hay tres, y van a relojes distintos. En este episodio te cuento por qué el beneficio que declaran las grandes tecnológicas ya no mide su negocio, por qué Google quemó caja por primera vez en veinte años, cómo se está financiando todo esto con bonos que vencen en 2126 y arrendamientos que no aparecen en ningún balance, y dónde está el punto exacto por el que creo que empieza a romperse. Con los datos encima de la mesa, el caso contrario incluido, y una pregunta para ti al final: ¿tu negocio sobrevive si el coste del token se multiplica por tres?</p><p><br></p><p>Los tres artículos completos, con todas las fuentes enlazadas: </p><p><br></p><p>👉 (I) El beneficio que no es beneficio https://tertulia14.substack.com/p/i-el-beneficio-que-no-es-beneficio</p><p>👉 (II) El dinero que no está https://tertulia14.substack.com/p/ii-el-dinero-que-no-esta</p><p>👉 (III) El cliente que se va a lo barato https://tertulia14.substack.com/p/iii-el-cliente-que-se-va-a-lo-barato</p>
+]]></description>
+			<link>https://podcasters.spotify.com/pod/show/jos-carlos-cortizo-prez/episodes/La-Triple-Burbuja-de-la-IA-e3nhlvh</link>
+			<guid isPermaLink="false">54d9e263-6aed-44c8-ab8a-dffe348db6ce</guid>
+			<dc:creator><![CDATA[La Tertul-IA (Lu, Frankie y Corti)]]></dc:creator>
+			<pubDate>Tue, 18 Aug 2026 03:44:00 GMT</pubDate>
+			<enclosure url="https://anchor.fm/s/107b28204/podcast/play/124360113/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-7-17%2F430030302-44100-2-421bfb2c4619f.mp3" length="40957909" type="audio/mpeg"/>
+			<itunes:summary>&lt;p&gt;Todo el mundo pregunta si hay una burbuja de la IA. Es la pregunta equivocada: hay tres, y van a relojes distintos. En este episodio te cuento por qué el beneficio que declaran las grandes tecnológicas ya no mide su negocio, por qué Google quemó caja por primera vez en veinte años, cómo se está financiando todo esto con bonos que vencen en 2126 y arrendamientos que no aparecen en ningún balance, y dónde está el punto exacto por el que creo que empieza a romperse. Con los datos encima de la mesa, el caso contrario incluido, y una pregunta para ti al final: ¿tu negocio sobrevive si el coste del token se multiplica por tres?&lt;/p&gt;&lt;p&gt;&lt;br&gt;&lt;/p&gt;&lt;p&gt;Los tres artículos completos, con todas las fuentes enlazadas: &lt;/p&gt;&lt;p&gt;&lt;br&gt;&lt;/p&gt;&lt;p&gt;👉 (I) El beneficio que no es beneficio https://tertulia14.substack.com/p/i-el-beneficio-que-no-es-beneficio&lt;/p&gt;&lt;p&gt;👉 (II) El dinero que no está https://tertulia14.substack.com/p/ii-el-dinero-que-no-esta&lt;/p&gt;&lt;p&gt;👉 (III) El cliente que se va a lo barato https://tertulia14.substack.com/p/iii-el-cliente-que-se-va-a-lo-barato&lt;/p&gt;
+</itunes:summary>
+			<itunes:explicit>false</itunes:explicit>
+			<itunes:duration>00:42:39</itunes:duration>
+			<itunes:image href="https://d3t3ozftmdmh3i.cloudfront.net/staging/podcast_uploaded_episode/44141065/44141065-1787007193930-940e8a6bac125.jpg"/>
+			<itunes:episodeType>full</itunes:episodeType>
+		</item>
+	</channel>
+</rss>

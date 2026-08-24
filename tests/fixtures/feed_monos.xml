@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="utf-8"?><?xml-stylesheet type="text/xsl" href="https://cuonda.com/feed.xsl"?>
+<rss xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:googleplay="http://www.google.com/schemas/play-podcasts/1.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:spotify="http://www.spotify.com/ns/rss" xmlns:podcast="https://podcastindex.org/namespace/1.0"><channel>
+	<title>monos estocásticos</title>
+	<podcast:guid>fc5c73de-6468-571d-8f2c-07311bd763a1</podcast:guid>
+	<itunes:subtitle>Hacemos todo lo que los monos estocásticos saben hacer. Coser secuencias de formas lingüísticas según la información probabilística de cómo se combinan.</itunes:subtitle>
+	<itunes:type>episodic</itunes:type>
+	<description><![CDATA[
+<p>monos estocásticos es un podcast sobre inteligencia artificial presentado por Antonio Ortiz (<a href="https://x.com/antonello">@antonello</a>) y Matías S. Zavia (<a href="https://x.com/matiass">@matiass</a>). </p>
+
+<p>Sacamos un episodio nuevo cada jueves. Puedes seguirnos en <a href="https://www.youtube.com/@monosestocasticos">YouTube</a>, <a href="https://www.linkedin.com/company/93818471/">LinkedIn</a> y <a href="https://x.com/monospodcast">X</a>. Más enlaces en <a href="https://cuonda.com/monos-estocasticos/links">cuonda.com/monos-estocasticos/links</a></p>
+
+<p>Hacemos todo lo que los monos estocásticos saben hacer: coser secuencias de formas lingüísticas que hemos observado en nuestros vastos datos de entrenamiento según la información probabilística de cómo se combinan.</p>]]></description>
+	<summary>Hacemos todo lo que los monos estocásticos saben hacer. Coser secuencias de formas lingüísticas según la información probabilística de cómo se combinan.</summary>
+	<podcast:podroll>
+	<podcast:remoteItem feedGuid="4db8ceb2-ee87-52a1-b083-049f07f54f26" feedUrl="https://voicemi.es/feed/cupertino" title="Cupertino"/>
+	<podcast:remoteItem feedGuid="9e0dbd34-bd90-52df-93e0-d1942377f7b1" feedUrl="https://cuonda.com/elon/feed" title="ELON"/>
+	<podcast:remoteItem feedGuid="ccf85af5-16a8-5cc9-8cb1-6949e6fe09d2" feedUrl="https://cuonda.com/parsec/feed" title="PARSEC"/></podcast:podroll><atom:link href="https://pubsubhubbub.appspot.com/" type="application/rss+xml" rel="hub"/><atom:link href="https://pubsubhubbub.superfeedr.com/" type="application/rss+xml" rel="hub"/><atom:link href="https://websubhub.com/hub" type="application/rss+xml" rel="hub"/><atom:link href="https://switchboard.p3k.io/" type="application/rss+xml" rel="hub"/><atom:link href="https://cuonda.com/monos-estocasticos/feed" rel="self"/>
+
+<image>
+	<title>monos estocásticos</title>
+
+<url>https://cuonda.com/storage/podcasts/184/image.jpeg?gen=6fa3ba90cbd6f1dd9fb53e53ca24b014</url></image>
+	<itunes:image href="https://cuonda.com/storage/podcasts/184/image.jpeg?gen=6fa3ba90cbd6f1dd9fb53e53ca24b014"/>
+	<podcast:person img="https://cuonda.com/storage/pictures/mzc2PXDzpMDj0WewyA5umnsPV5IDxnzkIl5UKYD8.jpeg">Antonio Ortiz</podcast:person>
+	<podcast:person img="https://cuonda.com/storage/pictures/FmLRfjQBu7yrhuLnF8puqxeIB1RYdwuHAQbsamL6.jpeg">Matías S. Zavia</podcast:person>
+	<itunes:author>Antonio Ortiz, Matías S. Zavia</itunes:author>
+	<itunes:owner>
+	<itunes:name>Antonio Ortiz, Matías S. Zavia</itunes:name>
+	<itunes:email>alex@cuonda.com</itunes:email></itunes:owner>
+	<itunes:category text="News">
+	<itunes:category text="Tech News"/></itunes:category>
+	<itunes:category text="Science"/>
+	<itunes:category text="Technology"/>
+	<itunes:explicit>no</itunes:explicit>
+	<podcast:funding url=""/><language>es</language><copyright>Alex Barredo</copyright>
+	<pubDate>Thu, 30 Jul 2026 06:00:00 +0200</pubDate>
+	<lastBuildDate>Thu, 30 Jul 2026 06:00:00 +0200</lastBuildDate>
+
+<item>
+	<title>Es el momento de desacelerar la IA: ChatGPT escapó de su sandbox y se puso a ver la teletienda</title>
+	<description><![CDATA[
+<p>- Apple se lo piensa con las gafas</p>
+
+<p>- La resaca de "el incidente" ¿Escapó la IA del control humano?</p>
+
+<p>- Microsoft, Meta, Nvidia y otras 22 organizaciones defienden los modelos de pesos abiertos</p>
+
+<p>- Ha llegado la IA a la teletienda europea</p>
+
+<p>- Robots humanoides operan a un cerdo vivo por primera vez</p>
+
+
+
+<p>monos estoc&aacute;sticos es el p&oacute;dcast de inteligencia artificial presentado desde M&aacute;laga por Antonio Ortiz (<a href="https://x.com/antonello" target="_blank" rel="noopener">@antonello</a>) y Mat&iacute;as S. Zavia (<a href="https://x.com/matiass" target="_blank" rel="noopener">@matiass</a>). Hay un episodio nuevo cada jueves. Puedes unirte gratis a nuestro club social de Telegram y seguirnos en redes sociales:</p>
+
+
+<p>- Telegram <a href="https://t.me/monosclub" target="_blank" rel="noopener">https://t.me/monosclub</a></p>
+
+<p>- Twitter <a href="https://x.com/monospodcast" target="_blank" rel="noopener">https://x.com/monospodcast</a></p>
+
+<p>- LinkedIn <a href="https://www.linkedin.com/company/monos-estoc-sticos/" target="_blank" rel="noopener">https://www.linkedin.com/company/monos-estoc-sticos/</a></p>
+
+<p>- Instagram <a href="https://www.instagram.com/monosestocasticos" target="_blank" rel="noopener">https://www.instagram.com/monosestocasticos</a></p>
+
+<p>- TikTok <a href="https://www.tiktok.com/@monosestocasticos" target="_blank" rel="noopener">https://www.tiktok.com/@monosestocasticos</a></p>
+
+<p>- Bluesky <a href="https://monosestocasticos.bsky.social" target="_blank" rel="noopener">https://monosestocasticos.bsky.social</a></p>
+
+<p>- Threads <a href="https://www.threads.com/@monosestocasticos" target="_blank" rel="noopener">https://www.threads.com/@monosestocasticos</a></p>
+
+<p>- Facebook <a href="https://www.facebook.com/profile.php?id=61584654541061" target="_blank" rel="noopener">https://www.facebook.com/profile.php?id=61584654541061</a></p>
+
+
+<p>Todos los episodios en YouTube: <a href="https://www.youtube.com/playlist?list=PL-6s6cUsxTnsY_V0rqQFURaHDYuXD0AXj" target="_blank" rel="noopener">https://www.youtube.com/playlist?list=PL-6s6cUsxTnsY_V0rqQFURaHDYuXD0AXj</a></p>
+
+<p>M&aacute;s enlaces al p&oacute;dcast: <a href="https://cuonda.com/monos-estocasticos/links" target="_blank" rel="noopener">https://cuonda.com/monos-estocasticos/links</a></p>
+
+]]></description>
+	<summary>Sam Altman nos explica que estamos en la singularidad</summary>
+	<pubDate>Thu, 30 Jul 2026 06:00:00 +0200</pubDate>
+	<enclosure url="https://cuonda.com/download/1670584.mp3" type="audio/mpeg" length="74683740"/>
+	<author>Antonio Ortiz, Matías S. Zavia</author>
+	<itunes:author>Antonio Ortiz, Matías S. Zavia</itunes:author>
+	<podcast:person img="https://cuonda.com/storage/pictures/mzc2PXDzpMDj0WewyA5umnsPV5IDxnzkIl5UKYD8.jpeg">Antonio Ortiz</podcast:person>
+	<podcast:person img="https://cuonda.com/storage/pictures/FmLRfjQBu7yrhuLnF8puqxeIB1RYdwuHAQbsamL6.jpeg">Matías S. Zavia</podcast:person>
+	<link>https://cuonda.com/monos-estocasticos/es-el-momento-de-desacelerar-la-ia-chatgpt-escapo-de-su-sandbox-y-se-puso-a-ver-la-teletienda</link>
+	<itunes:season>4</itunes:season>
+	<itunes:episodeType>full</itunes:episodeType>
+	<podcast:transcript type="plain/txt" url="https://cuonda.com/monos-estocasticos/es-el-momento-de-desacelerar-la-ia-chatgpt-escapo-de-su-sandbox-y-se-puso-a-ver-la-teletienda/transcription"/>
+	<podcast:transcript type="application/x-subrip" rel="captions" url="https://cuonda.com/monos-estocasticos/es-el-momento-de-desacelerar-la-ia-chatgpt-escapo-de-su-sandbox-y-se-puso-a-ver-la-teletienda/subtitles"/>
+	<podcast:transcript type="text/srt" rel="captions" url="https://cuonda.com/monos-estocasticos/es-el-momento-de-desacelerar-la-ia-chatgpt-escapo-de-su-sandbox-y-se-puso-a-ver-la-teletienda/subtitles"/>
+	<podcast:transcript type="text/vtt" rel="captions" url="https://cuonda.com/monos-estocasticos/es-el-momento-de-desacelerar-la-ia-chatgpt-escapo-de-su-sandbox-y-se-puso-a-ver-la-teletienda/subtitles.vtt"/>
+	<itunes:episode>50</itunes:episode>
+	<itunes:duration>4930</itunes:duration>
+	<itunes:explicit>clean</itunes:explicit>
+	<guid isPermaLink="false">6b5da6a8698b39524454c60e7de67dbb</guid>
+	<itunes:image href="https://cuonda.com/storage/podcasts/184/1670584/image.jpg?gen=8684bf04f3497c61f6731e293f360ca0"/>
+</item><item>
+	<title>El nuevo Claude filtrado es tan potente que destruiría todas las economías menos una: la de España</title>
+	<description><![CDATA[
+<p>- La IA ahora está subvencionada, se viene la gran subida</p>
+
+<p>- La gran filtración (doble, de Anthropic)</p>
+
+<p>- La IA no se hace sola, hay que hacerla con Nvidia</p>
+
+<p>- Google trabaja en el "Agent Smith".</p>
+
+<p>- ARC-AGI 3</p>
+
+<p>- Martin vuelve a pensar fuera de la caja</p>
+
+
+
+<p>monos estoc&aacute;sticos es el p&oacute;dcast de inteligencia artificial presentado desde M&aacute;laga por Antonio Ortiz (<a href="https://x.com/antonello" target="_blank" rel="noopener">@antonello</a>) y Mat&iacute;as S. Zavia (<a href="https://x.com/matiass" target="_blank" rel="noopener">@matiass</a>). Hay un episodio nuevo cada jueves. Puedes unirte gratis a nuestro club social de Telegram y seguirnos en redes sociales:</p>
+
+
+<p>- Telegram <a href="https://t.me/monosclub" target="_blank" rel="noopener">https://t.me/monosclub</a></p>
+
+<p>- Twitter <a href="https://x.com/monospodcast" target="_blank" rel="noopener">https://x.com/monospodcast</a></p>
+
+<p>- LinkedIn <a href="https://www.linkedin.com/company/monos-estoc-sticos/" target="_blank" rel="noopener">https://www.linkedin.com/company/monos-estoc-sticos/</a></p>
+
+<p>- Instagram <a href="https://www.instagram.com/monosestocasticos" target="_blank" rel="noopener">https://www.instagram.com/monosestocasticos</a></p>
+
+<p>- TikTok <a href="https://www.tiktok.com/@monosestocasticos" target="_blank" rel="noopener">https://www.tiktok.com/@monosestocasticos</a></p>
+
+<p>- Bluesky <a href="https://monosestocasticos.bsky.social" target="_blank" rel="noopener">https://monosestocasticos.bsky.social</a></p>
+
+<p>- Threads <a href="https://www.threads.com/@monosestocasticos" target="_blank" rel="noopener">https://www.threads.com/@monosestocasticos</a></p>
+
+<p>- Facebook <a href="https://www.facebook.com/profile.php?id=61584654541061" target="_blank" rel="noopener">https://www.facebook.com/profile.php?id=61584654541061</a></p>
+
+
+<p>Todos los episodios en YouTube: <a href="https://www.youtube.com/playlist?list=PL-6s6cUsxTnsY_V0rqQFURaHDYuXD0AXj" target="_blank" rel="noopener">https://www.youtube.com/playlist?list=PL-6s6cUsxTnsY_V0rqQFURaHDYuXD0AXj</a></p>
+
+<p>M&aacute;s enlaces al p&oacute;dcast: <a href="https://cuonda.com/monos-estocasticos/links" target="_blank" rel="noopener">https://cuonda.com/monos-estocasticos/links</a></p>
+
+
+
+<p>- (0) Introducción</p>
+<p>- (05:20) Subida de Precios en la IA</p>
+<p>- (20:36) Filtraciones de Cloud Code</p>
+<p>- (31:35) Nuevos Modelos de IA</p>
+<p>- (41:08) Darío y el Altruismo Efectivo</p>
+<p>- (48:04) La Venta de DeepMind</p>
+<p>- (57:16) Evolución de ArcG y Desafíos</p>
+<p>- (1h16) Martín Varsavsky y el Futuro de España</p>]]></description>
+	<summary>La gran filtración (doble, de Anthropic)</summary>
+	<pubDate>Thu, 02 Apr 2026 05:56:00 +0200</pubDate>
+	<enclosure url="https://cuonda.com/download/1670118.mp3" type="audio/mpeg" length="79667703"/>
+	<author>Antonio Ortiz, Matías S. Zavia</author>
+	<itunes:author>Antonio Ortiz, Matías S. Zavia</itunes:author>
+	<podcast:person img="https://cuonda.com/storage/pictures/mzc2PXDzpMDj0WewyA5umnsPV5IDxnzkIl5UKYD8.jpeg">Antonio Ortiz</podcast:person>
+	<podcast:person img="https://cuonda.com/storage/pictures/FmLRfjQBu7yrhuLnF8puqxeIB1RYdwuHAQbsamL6.jpeg">Matías S. Zavia</podcast:person>
+	<link>https://cuonda.com/monos-estocasticos/el-nuevo-claude-filtrado-es-tan-potente-que-destruiria-todas-las-economias-menos-una-la-de-espana</link>
+	<itunes:season>4</itunes:season>
+	<itunes:episodeType>full</itunes:episodeType>
+	<podcast:transcript type="plain/txt" url="https://cuonda.com/monos-estocasticos/el-nuevo-claude-filtrado-es-tan-potente-que-destruiria-todas-las-economias-menos-una-la-de-espana/transcription"/>
+	<podcast:chapters type="application/json+chapters" url="https://cuonda.com/monos-estocasticos/el-nuevo-claude-filtrado-es-tan-potente-que-destruiria-todas-las-economias-menos-una-la-de-espana/chapters"/>
+	<podcast:chapters type="text/vtt" rel="captions" url="https://cuonda.com/monos-estocasticos/el-nuevo-claude-filtrado-es-tan-potente-que-destruiria-todas-las-economias-menos-una-la-de-espana/chapters.vtt"/>
+	<psc:chapters version="1.2" xmlns:psc="http://podlove.org/simple-chapters">
+	<psc:chapter start="0" title="Inicio"/>
+	<psc:chapter start="0" title="Introducción"/>
+	<psc:chapter start="320" title="Subida de Precios en la IA"/>
+	<psc:chapter start="1236" title="Filtraciones de Cloud Code"/>
+	<psc:chapter start="1895" title="Nuevos Modelos de IA"/>
+	<psc:chapter start="2468" title="Darío y el Altruismo Efectivo"/>
+	<psc:chapter start="2884" title="La Venta de DeepMind"/>
+	<psc:chapter start="3436" title="Evolución de ArcG y Desafíos"/>
+	<psc:chapter start="4562" title="Martín Varsavsky y el Futuro de España"/></psc:chapters>
+	<itunes:episode>32</itunes:episode>
+	<itunes:duration>5098</itunes:duration>
+	<itunes:explicit>clean</itunes:explicit>
+	<guid isPermaLink="false">fcef5fdaeb838459b1de2163d423b7f3</guid>
+	<itunes:image href="https://cuonda.com/storage/podcasts/184/1670118/image.jpg?gen=0ef0292f016a2a85350f1990b7e94c6e"/>
+</item><item>
+	<title>Kimi K3 nos lleva al comunismo digital: solo las camisetas falsas de la Selección pueden evitarlo</title>
+	<description><![CDATA[
+<p>La gente ha jugado y Kimi ha petado</p>
+
+
+<p>Patrocinador: Indexa es una forma sencilla de invertir cada mes. Ya sea en el SP500, donde están todas las empresas de las que hablamos normalmente (Meta, Amazon, Google, etc) o en Europa, Japón... En Indexa se encargan de gestionar tu cartera, según tu perfil inversor, para que tú te olvides.</p>
+
+<p>Si quieres saber más, te dejamos nuestro enlace para ahorrarte las comisiones de Indexa sobre los primeros 15.000 € en el enlace de la descripción o puedes contactar directamente con ellos, y estarán encantados de atenderte.</p>
+
+<p>https://indexacapital.com/t/rodqpW?utm_source=monosestocasticos&amp;utm_medium=advertising&amp;utm_campaign=monos-podcast</p>
+
+<p>Indexa además tiene una comisión total de apenas del 0,535 de media anual, por lo que es mucho más barata de media que los bancos tradicionales.</p>
+
+<p>- Kimi K3, Qwen 3.8 y lo que nos gusta un momento Deepseek</p>
+
+<p>- La gente ha jugado y Kimi ha petado</p>
+
+<p>- Netflix y Linus Torvalds nos dicen que los anti IA van perdiendo</p>
+
+<p>- Mira Murati y Thinking Machine Labs lanzan Inkling</p>
+
+<p>- La IA ayuda a los funcionarios a no tener que bajar a la calle</p>
+
+
+
+<p>monos estoc&aacute;sticos es el p&oacute;dcast de inteligencia artificial presentado desde M&aacute;laga por Antonio Ortiz (<a href="https://x.com/antonello" target="_blank" rel="noopener">@antonello</a>) y Mat&iacute;as S. Zavia (<a href="https://x.com/matiass" target="_blank" rel="noopener">@matiass</a>). Hay un episodio nuevo cada jueves. Puedes unirte gratis a nuestro club social de Telegram y seguirnos en redes sociales:</p>
+
+
+<p>- Telegram <a href="https://t.me/monosclub" target="_blank" rel="noopener">https://t.me/monosclub</a></p>
+
+<p>- Twitter <a href="https://x.com/monospodcast" target="_blank" rel="noopener">https://x.com/monospodcast</a></p>
+
+<p>- LinkedIn <a href="https://www.linkedin.com/company/monos-estoc-sticos/" target="_blank" rel="noopener">https://www.linkedin.com/company/monos-estoc-sticos/</a></p>
+
+<p>- Instagram <a href="https://www.instagram.com/monosestocasticos" target="_blank" rel="noopener">https://www.instagram.com/monosestocasticos</a></p>
+
+<p>- TikTok <a href="https://www.tiktok.com/@monosestocasticos" target="_blank" rel="noopener">https://www.tiktok.com/@monosestocasticos</a></p>
+
+<p>- Bluesky <a href="https://monosestocasticos.bsky.social" target="_blank" rel="noopener">https://monosestocasticos.bsky.social</a></p>
+
+<p>- Threads <a href="https://www.threads.com/@monosestocasticos" target="_blank" rel="noopener">https://www.threads.com/@monosestocasticos</a></p>
+
+<p>- Facebook <a href="https://www.facebook.com/profile.php?id=61584654541061" target="_blank" rel="noopener">https://www.facebook.com/profile.php?id=61584654541061</a></p>
+
+
+<p>Todos los episodios en YouTube: <a href="https://www.youtube.com/playlist?list=PL-6s6cUsxTnsY_V0rqQFURaHDYuXD0AXj" target="_blank" rel="noopener">https://www.youtube.com/playlist?list=PL-6s6cUsxTnsY_V0rqQFURaHDYuXD0AXj</a></p>
+
+<p>M&aacute;s enlaces al p&oacute;dcast: <a href="https://cuonda.com/monos-estocasticos/links" target="_blank" rel="noopener">https://cuonda.com/monos-estocasticos/links</a></p>
+
+]]></description>
+	<summary>La gente ha jugado y Kimi ha petado</summary>
+	<pubDate>Thu, 23 Jul 2026 06:00:00 +0200</pubDate>
+	<enclosure url="https://cuonda.com/download/1670566.mp3" type="audio/mpeg" length="81252098"/>
+	<author>Antonio Ortiz, Matías S. Zavia</author>
+	<itunes:author>Antonio Ortiz, Matías S. Zavia</itunes:author>
+	<podcast:person img="https://cuonda.com/storage/pictures/mzc2PXDzpMDj0WewyA5umnsPV5IDxnzkIl5UKYD8.jpeg">Antonio Ortiz</podcast:person>
+	<podcast:person img="https://cuonda.com/storage/pictures/FmLRfjQBu7yrhuLnF8puqxeIB1RYdwuHAQbsamL6.jpeg">Matías S. Zavia</podcast:person>
+	<link>https://cuonda.com/monos-estocasticos/kimi-k3-nos-lleva-al-comunismo-digital-solo-las-camisetas-falsas-de-la-seleccion-pueden-evitarlo</link>
+	<itunes:season>4</itunes:season>
+	<itunes:episodeType>full</itunes:episodeType>
+	<itunes:episode>49</itunes:episode>
+	<itunes:duration>4877</itunes:duration>
+	<itunes:explicit>clean</itunes:explicit>
+	<guid isPermaLink="false">b77be0cae682da7ab4d41b814fd9a8c0</guid>
+	<itunes:image href="https://cuonda.com/storage/podcasts/184/1670566/image.jpg?gen=316bed748fd0d6a805fadc5c392aaf56"/>
+</item></channel></rss>

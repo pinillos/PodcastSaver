@@ -193,10 +193,16 @@ def _render_inspection(info: feeds.FeedInspection) -> None:
         rango = f", de {info.first_published[:10]} a {info.last_published[:10]}"
     console.print(f"  {info.n_items} episodios en el feed{rango}")
 
-    if info.n_transcripts:
+    if info.n_transcripts_timed:
         console.print(
-            f"  [cyan]★ {info.n_transcripts} episodios ya traen transcripción publicada[/] "
-            "[dim](§4.4: nos ahorramos transcribirlos)[/]"
+            f"  [cyan]★ {info.n_transcripts_timed} episodios traen transcripción CON "
+            "marcas de tiempo[/] [dim](§4.4: no hay que pasarles Whisper)[/]"
+        )
+    solo_texto = info.n_transcripts - info.n_transcripts_timed
+    if solo_texto:
+        console.print(
+            f"  [yellow]{solo_texto} episodios traen transcripción sin marcas de tiempo[/] "
+            "[dim](hay que transcribirlos igual: sin timestamps no hay salto al minuto)[/]"
         )
     if info.n_chapters:
         console.print(f"  [cyan]★ {info.n_chapters} episodios declaran capítulos[/]")
@@ -258,7 +264,9 @@ def _render(report: ingest.SyncReport, *, dry_run: bool) -> None:
             estado,
             str(item.seen),
             str(item.new_count),
-            str(item.with_feed_transcript) if item.with_feed_transcript else "-",
+            f"{item.with_timed_transcript} con marcas"
+            if item.with_timed_transcript
+            else (str(item.with_feed_transcript) if item.with_feed_transcript else "-"),
             str(item.with_chapters) if item.with_chapters else "-",
         )
     console.print(table)

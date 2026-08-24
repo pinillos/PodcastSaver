@@ -384,8 +384,19 @@ Metal:
 | `large-v3-turbo-q5_0` | ~8–15× | 4–8 min | 20–38 h |
 | `large-v3-q5_0` | ~2–3× | 20–30 min | 102–153 h |
 
-Volumen real medido sobre dos de los tres feeds: **261 episodios, 306 h** de audio
-(IA Semanal 95 eps / 68 h; El Test de Turing 166 eps / 239 h). Falta La Tertul-IA.
+Volumen real medido sobre los cuatro feeds: **566 episodios, 664 h** de audio.
+
+| Podcast | Episodios | Horas | Ya transcritos por el feed | Con capítulos |
+|---|---:|---:|---:|---:|
+| IA Semanal | 95 | 68 | — | — |
+| El Test de Turing | 166 | 239 | — | 58 |
+| La Tertul-IA | 127 | 141 | — | 18 |
+| monos estocásticos | 178 | 216 | **128 (148 h)** | 59 |
+| **Total** | **566** | **664** | **128 (148 h)** | **135** |
+
+Aprovechar las transcripciones que ya publica Cuonda (§4.4) quita **148 h** del
+backfill: quedan 516 h, es decir **34–64 h de máquina** con `large-v3-turbo` en vez
+de 44–83 h. Es la mayor optimización disponible y no cuesta nada.
 
 Restar un 20–30% en lotes largos por throttling sostenido. Prácticas:
 

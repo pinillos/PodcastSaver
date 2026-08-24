@@ -34,6 +34,25 @@ PODCAST_NS = (
 )
 PSC_NS = "http://podlove.org/simple-chapters"
 MEDIA_NS = "http://search.yahoo.com/mrss/"
+
+# Un item puede declarar el mismo texto en varios formatos. Los que llevan
+# marcas de tiempo valen infinitamente más: sin ellas no hay salto al minuto,
+# que es el valor central del sistema (§5.12). El texto plano sirve de poco
+# porque habría que realinearlo, así que se queda el último.
+_TRANSCRIPT_PREFERENCE = (
+    "text/vtt",
+    "application/x-subrip",
+    "text/srt",
+    "application/srt",
+    "application/json",
+    "application/x-json+chapters",
+    "text/html",
+    "plain/txt",
+    "text/plain",
+)
+_TIMESTAMPED_TYPES = frozenset({
+    "text/vtt", "application/x-subrip", "text/srt", "application/srt", "application/json",
+})
 ATOM_NS = "http://www.w3.org/2005/Atom"
 
 # Solo con marcador explícito. Un número suelto en el título casi nunca es el
@@ -82,6 +101,12 @@ class EpisodeItem:
     feed_chapters_url: str | None = None
     chapters: list[dict] = field(default_factory=list)
     chapters_source: str = "none"
+    persons: list[str] = field(default_factory=list)
+
+    @property
+    def transcript_has_timestamps(self) -> bool:
+        """Sin marcas de tiempo la transcripción del feed no nos sirve sola."""
+        return (self.feed_transcript_type or "").lower() in _TIMESTAMPED_TYPES
 
 
 @dataclass
@@ -99,6 +124,7 @@ class FeedInspection:
     first_published: str | None = None
     last_published: str | None = None
     n_transcripts: int = 0
+    n_transcripts_timed: int = 0
     n_chapters: int = 0
     n_note_chapters: int = 0
     self_link: str | None = None
@@ -258,13 +284,33 @@ def extract_episode_number(title: str, entry: Any = None) -> int | None:
     return int(match.group("hash") or match.group("ep"))
 
 
-def _find_ns(item: ET.Element, tag: str) -> ET.Element | None:
-    """Busca un elemento en cualquiera de las URIs conocidas del namespace."""
+def _find_all_ns(item: ET.Element, tag: str) -> list[ET.Element]:
+    """Todos los elementos con ese tag, en cualquiera de las URIs conocidas."""
+    found: list[ET.Element] = []
     for ns in PODCAST_NS:
-        found = item.find(f"{{{ns}}}{tag}")
-        if found is not None:
-            return found
-    return None
+        found.extend(item.findall(f"{{{ns}}}{tag}"))
+    return found
+
+
+def _rank_transcript(element: ET.Element) -> int:
+    mimetype = (element.get("type") or "").lower()
+    try:
+        return _TRANSCRIPT_PREFERENCE.index(mimetype)
+    except ValueError:
+        return len(_TRANSCRIPT_PREFERENCE)
+
+
+def _pick_transcript(item: ET.Element) -> tuple[str | None, str | None]:
+    """Elige el mejor formato de transcripción declarado por el feed.
+
+    Ojo: `find()` devolvería el primero del documento, que en Cuonda es
+    `plain/txt` — sin timestamps. Hay que ordenar por preferencia.
+    """
+    candidatos = [t for t in _find_all_ns(item, "transcript") if t.get("url")]
+    if not candidatos:
+        return None, None
+    best = min(candidatos, key=_rank_transcript)
+    return best.get("url"), best.get("type")
 
 
 def _podcasting20_by_index(raw_xml: bytes) -> list[dict]:
@@ -286,16 +332,24 @@ def _podcasting20_by_index(raw_xml: bytes) -> list[dict]:
     for item in root.iter("item"):
         data: dict[str, Any] = {}
 
-        transcript = _find_ns(item, "transcript")
-        if transcript is not None and transcript.get("url"):
-            data["feed_transcript_url"] = transcript.get("url")
-            data["feed_transcript_type"] = transcript.get("type")
+        url, mimetype = _pick_transcript(item)
+        if url:
+            data["feed_transcript_url"] = url
+            data["feed_transcript_type"] = mimetype
 
-        chapters = _find_ns(item, "chapters")
-        if chapters is not None and chapters.get("url"):
+        chapters = next((c for c in _find_all_ns(item, "chapters") if c.get("url")), None)
+        if chapters is not None:
             data["feed_chapters_url"] = chapters.get("url")
         elif item.find(f"{{{PSC_NS}}}chapters") is not None:
             data["feed_chapters_url"] = "psc:inline"
+
+        # Quién habla, según el propio feed. Resuelve de gratis el trabajo
+        # difícil de §5.11: mapear SPEAKER_XX a nombres reales.
+        personas = [
+            (p.text or "").strip() for p in _find_all_ns(item, "person") if (p.text or "").strip()
+        ]
+        if personas:
+            data["persons"] = personas
 
         found.append(data)
     return found
@@ -454,6 +508,7 @@ def parse_feed(raw_xml: bytes, base_url: str | None = None) -> FeedResult:
                 feed_chapters_url=extra.get("feed_chapters_url"),
                 chapters=note_chapters,
                 chapters_source=chapters_source,
+                persons=extra.get("persons", []),
             )
         )
     return result
@@ -496,6 +551,7 @@ def inspect_feed(rss_url: str, *, client: httpx.Client | None = None) -> FeedIns
         fechas = sorted(i.published_at for i in parsed.items)
         inspection.first_published, inspection.last_published = fechas[0], fechas[-1]
     inspection.n_transcripts = sum(1 for i in parsed.items if i.feed_transcript_url)
+    inspection.n_transcripts_timed = sum(1 for i in parsed.items if i.transcript_has_timestamps)
     inspection.n_chapters = sum(1 for i in parsed.items if i.feed_chapters_url)
     inspection.n_note_chapters = sum(1 for i in parsed.items if i.chapters_source == "notes")
     inspection.self_link = parsed.self_link

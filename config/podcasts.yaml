@@ -35,8 +35,23 @@ podcasts:
     authors: Lu Martín, Frankie Carrero, Corti
     language: es
     apple_id: "1723736263"
+    # Verificado: 127 episodios (ene-2024 → ago-2026, ~141 h). 18 traen índice
+    # de capítulos en las show notes. Anchor: misma URL incrustada que el Test
+    # de Turing, y misma advertencia de publicidad dinámica (§9.1).
+    rss_url: https://anchor.fm/s/107b28204/podcast/rss
     # OJO (§2.2): estos episodios salen también dentro de "Growth: el podcast
     # de Product Hackers" (Apple 1236733939). NO dar de alta ese feed sin
     # tener en cuenta el dedupe global por enclosure.
     # OJO (§2.1): no confundir con "La TERTULia de la Inteligencia Artificial"
     # (Apple 1669083682), que es otro podcast distinto.
+
+  - slug: monos-estocasticos
+    title: monos estocásticos
+    authors: Antonio Ortiz, Matías S. Zavia
+    language: es
+    # Verificado: 178 episodios (ene-2023 → jul-2026, ~216 h). El mejor feed
+    # de los cuatro: 128 episodios traen transcripción en VTT con marcas de
+    # tiempo (§4.4), 59 traen capítulos y los 178 declaran los hablantes con
+    # <podcast:person>, que resuelve el mapeo de §5.11 sin trabajo manual.
+    # Alojado en Cuonda, sin tracking ni URL incrustada.
+    rss_url: https://cuonda.com/monos-estocasticos/feed
