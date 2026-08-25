@@ -99,7 +99,12 @@ def servidor(tmp_path_factory):
 
         def do_GET(self):
             if self.path == "/config.json":
-                return self._json({"functionsUrl": "/functions/v1", "podcasts": []})
+                return self._json({
+                    "supabaseUrl": "/auth-falso",
+                    "anonKey": "anon",
+                    "functionsUrl": "/functions/v1",
+                    "podcasts": [],
+                })
             if self.path == "/ep.wav" and "Range" in self.headers:
                 # Sin 206 el navegador no puede buscar dentro del audio (§9).
                 import re
@@ -160,9 +165,63 @@ def pagina(servidor):
         navegador.close()
 
 
+def _con_sesion(pg, base):
+    """Inyecta una sesión válida sin pasar por el correo."""
+    pg.goto(f"{base}/index.html", wait_until="domcontentloaded")
+    pg.evaluate(
+        "localStorage.setItem('podcast-kb.session', JSON.stringify("
+        "{access_token:'t', refresh_token:'r', expires_at: Date.now()+3600000}))"
+    )
+
+
+class TestAutenticacion:
+    """§7.5: sin sesión no hay búsqueda, y eso es lo que evita que el corpus
+    sea público."""
+
+    def test_sin_sesion_pide_entrar(self, pagina):
+        pg, base = pagina
+        pg.goto(f"{base}/index.html", wait_until="networkidle")
+        pg.wait_for_selector("#entrar:not([hidden])", timeout=5000)
+        assert pg.locator("#buscador").get_attribute("hidden") is not None
+
+    def test_con_sesion_muestra_el_buscador(self, pagina):
+        pg, base = pagina
+        _con_sesion(pg, base)
+        pg.goto(f"{base}/index.html", wait_until="networkidle")
+        pg.wait_for_selector("#buscador:not([hidden])", timeout=5000)
+        assert pg.locator("#entrar").get_attribute("hidden") is not None
+
+    def test_el_token_del_fragmento_no_queda_en_la_url(self, pagina):
+        """Un token en la barra acaba en el historial y en enlaces copiados."""
+        pg, base = pagina
+        pg.evaluate("localStorage.clear()")
+        # El `?nuevo` fuerza una carga de documento: navegar cambiando solo el
+        # fragmento no reejecuta el módulo. Un enlace de correo siempre abre
+        # documento nuevo, así que esto reproduce el caso real.
+        pg.goto(
+            f"{base}/index.html?nuevo=1#access_token=abc123&refresh_token=r&expires_in=3600",
+            wait_until="networkidle",
+        )
+        pg.wait_for_selector("#buscador:not([hidden])", timeout=5000)
+        # Leído desde la página: pg.url puede quedar obsoleto tras un
+        # replaceState, que no es una navegación.
+        assert "access_token" not in pg.evaluate("location.href")
+        assert pg.evaluate("location.hash") == ""
+        assert pg.evaluate("localStorage.getItem('podcast-kb.session')")
+
+    def test_cerrar_sesion(self, pagina):
+        pg, base = pagina
+        _con_sesion(pg, base)
+        pg.goto(f"{base}/index.html", wait_until="networkidle")
+        pg.wait_for_selector("#buscador:not([hidden])", timeout=5000)
+        pg.click("#salir")
+        pg.wait_for_selector("#entrar:not([hidden])", timeout=5000)
+
+
 class TestBusqueda:
     def test_muestra_resultados(self, pagina):
         pg, base = pagina
+        _con_sesion(pg, base)
         pg.goto(f"{base}/index.html?q=protocolo%20MCP", wait_until="networkidle")
         pg.wait_for_selector(".episodio", timeout=10000)
         assert pg.locator(".episodio").count() == 1
@@ -197,6 +256,7 @@ class TestReproductor:
     def test_salta_al_segundo_correcto(self, pagina):
         """§9: el margen de 10 s cubre la deriva por publicidad dinámica."""
         pg, base = pagina
+        _con_sesion(pg, base)
         pg.goto(f"{base}/index.html?q=protocolo%20MCP", wait_until="networkidle")
         pg.wait_for_selector(".episodio", timeout=10000)
         pg.locator(".momento").first.click()

@@ -65,3 +65,12 @@ mark { background: color-mix(in srgb, var(--marca) 35%, transparent);
           border-radius: 50%; padding: 0; line-height: 1; background: var(--borde);
           color: var(--texto); }
 .aviso { margin: .4rem 0 0; font-size: .75rem; color: var(--tenue); }
+
+#entrar { max-width: 46rem; margin: 0 auto; padding: 1rem; }
+#entrar h2 { font-size: 1rem; margin: 0 0 .4rem; }
+#entrar p { color: var(--tenue); font-size: .9rem; margin: 0 0 .8rem; }
+#form-entrar { display: flex; gap: .5rem; }
+#email { flex: 1; min-width: 0; }
+.enlace { background: none; border: 0; color: var(--tenue); font-size: .8rem;
+          padding: .3rem 0; cursor: pointer; }
+.enlace:hover { color: var(--acento); filter: none; }

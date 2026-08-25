@@ -691,8 +691,9 @@ create table chunks (
   unique (episode_id, idx)
 );
 
-create index chunks_tsv_es_idx on chunks using gin (tsv_es) where language = 'es';
-create index chunks_tsv_en_idx on chunks using gin (tsv_en) where language = 'en';
+-- NO parciales a propósito: ver §7.4.
+create index chunks_tsv_es_idx on chunks using gin (tsv_es);
+create index chunks_tsv_en_idx on chunks using gin (tsv_en);
 
 create index chunks_embedding_idx on chunks
   using hnsw (embedding halfvec_cosine_ops);
@@ -727,6 +728,27 @@ de poblar es un índice que devuelve cero resultados sin dar error. Dos columnas
 índices parciales cuestan algo de espacio —un `tsvector` vacío en la columna que no aplica es
 barato— y eliminan esa clase de bug entera: no hay forma de insertar un chunk sin índice
 léxico.
+
+**Los índices léxicos NO son parciales, y la consulta no elige la columna con un
+`CASE`.** Ambas cosas parecían buena idea y ambas rompen el índice. Medido sobre
+20.000 chunks:
+
+| Consulta | Plan |
+|---|---|
+| Columna literal, valor de idioma literal | `Bitmap Index Scan` ✅ |
+| `case when lang='en' then tsv_en else tsv_es end`, idioma como parámetro | `Parallel Seq Scan` ❌ |
+| Una rama por idioma, índices no parciales, idioma como parámetro | `Bitmap Index Scan` ✅ |
+
+El motivo: con el idioma como parámetro y un **plan genérico** —al que Postgres
+cambia tras varias ejecuciones de la misma sentencia— no puede saber qué columna
+lleva el `CASE` ni demostrar el predicado `where language = 'es'` del índice
+parcial, así que no puede usar ninguno de los dos. El RPC de §8.4 tiene por eso
+una rama `lex_es` y otra `lex_en`, cada una con su columna fija; el planificador
+resuelve la rama del idioma no usado con un `One-Time Filter` y no la ejecuta.
+
+Un `tsvector` vacío aporta pocas claves a GIN, así que indexar también las filas
+del otro idioma sale a un coste comparable al del índice parcial y elimina la
+dependencia del plan.
 
 **Consultar con `websearch_to_tsquery`**, no con `plainto_tsquery`: acepta comillas y
 `-exclusión` sin sintaxis especial, que es lo que un humano teclea sin pensar.
@@ -838,31 +860,50 @@ returns table (
 language sql stable
 set hnsw.iterative_scan = 'relaxed_order'
 as $$
-with lex as (
+with lex_es as (
+  select c.id, ts_rank_cd(c.tsv_es, websearch_to_tsquery('spanish', q)) as rank
+  from chunks c
+  where lang = 'es'
+    -- El idioma de la FILA, además del de la consulta: la configuración
+    -- `english` tokeniza texto español sin quejarse, así que sin esto una
+    -- búsqueda en inglés devolvería chunks en español mal analizados.
+    and c.language = 'es'
+    and c.tsv_es @@ websearch_to_tsquery('spanish', q)
+    and (podcast_ids    is null or c.podcast_id = any(podcast_ids))
+    and (date_from      is null or c.published_at >= date_from)
+    and (date_to        is null or c.published_at <= date_to)
+    and (speaker_filter is null or c.speaker = speaker_filter)
+    and (topics_filter  is null or exists (
+           select 1 from episodes e
+           where e.id = c.episode_id and e.topics && topics_filter))
+  order by rank desc
+  limit arm_limit
+),
+lex_en as (
+  select c.id, ts_rank_cd(c.tsv_en, websearch_to_tsquery('english', q)) as rank
+  from chunks c
+  where lang = 'en'
+    -- El idioma de la FILA, además del de la consulta: la configuración
+    -- `english` tokeniza texto español sin quejarse, así que sin esto una
+    -- búsqueda en inglés devolvería chunks en español mal analizados.
+    and c.language = 'en'
+    and c.tsv_en @@ websearch_to_tsquery('english', q)
+    and (podcast_ids    is null or c.podcast_id = any(podcast_ids))
+    and (date_from      is null or c.published_at >= date_from)
+    and (date_to        is null or c.published_at <= date_to)
+    and (speaker_filter is null or c.speaker = speaker_filter)
+    and (topics_filter  is null or exists (
+           select 1 from episodes e
+           where e.id = c.episode_id and e.topics && topics_filter))
+  order by rank desc
+  limit arm_limit
+),
+lex as (
+  -- Una rama por idioma, cada una con su columna FIJA. Elegirla con un CASE
+  -- impide que el planificador use el índice GIN en cuanto el idioma es un
+  -- parámetro: ver §7.4, está medido.
   select id, row_number() over (order by rank desc) as rnk
-  from (
-    select c.id,
-           ts_rank_cd(case when lang = 'en' then c.tsv_en else c.tsv_es end,
-                      websearch_to_tsquery(
-                        (case when lang = 'en' then 'english'
-                              else 'spanish' end)::regconfig, q)
-           ) as rank
-    from chunks c
-    where c.language = lang
-      and (case when lang = 'en' then c.tsv_en else c.tsv_es end)
-          @@ websearch_to_tsquery(
-               (case when lang = 'en' then 'english'
-                     else 'spanish' end)::regconfig, q)
-      and (podcast_ids    is null or c.podcast_id = any(podcast_ids))
-      and (date_from      is null or c.published_at >= date_from)
-      and (date_to        is null or c.published_at <= date_to)
-      and (speaker_filter is null or c.speaker = speaker_filter)
-      and (topics_filter  is null or exists (
-             select 1 from episodes e
-             where e.id = c.episode_id and e.topics && topics_filter))
-    order by rank desc
-    limit arm_limit
-  ) t
+  from (select * from lex_es union all select * from lex_en) t
 ),
 vec as (
   -- Sin embedding de consulta, esta rama queda vacía y la fusión degrada a

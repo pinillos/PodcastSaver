@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -57,11 +58,24 @@ class IndexReport:
     errors: list[str] = field(default_factory=list)
 
 
+def _normalizar_fechas(front_matter: dict) -> None:
+    """YAML convierte una fecha ISO **sin comillas** en un datetime.
+
+    El exportador las escribe entrecomilladas, pero un .md editado a mano no
+    tiene por qué. Sin esto, `published_at` llega a Postgres como objeto y a
+    los chunks como tipo distinto según el fichero.
+    """
+    valor = front_matter.get("published_at")
+    if isinstance(valor, (datetime, date)):
+        front_matter["published_at"] = valor.isoformat()
+
+
 def load_document(md_path: Path | str) -> EpisodeDocument:
     md_path = Path(md_path)
     text = md_path.read_text(encoding="utf-8")
     raw_front_matter, body = split_front_matter(text)
     front_matter = yaml.safe_load(raw_front_matter) or {}
+    _normalizar_fechas(front_matter)
     for required in ("podcast_slug", "guid", "published_at", "language"):
         if required not in front_matter:
             raise ValueError(f"{md_path}: falta `{required}` en el front matter")

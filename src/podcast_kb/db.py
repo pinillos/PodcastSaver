@@ -107,6 +107,10 @@ CREATE TABLE IF NOT EXISTS embeddings_cache (
 );
 """
 
+# El estado local termina en `exported`. Lo que pasa después vive en
+# Postgres (episodes.indexed_at): la etapa de indexado lee solo el
+# repositorio y puede correr en un GitHub Action sin acceso a este SQLite
+# (§3.2), así que no puede ni debe actualizarlo.
 STAGES = (
     "discovered",
     "downloaded",
@@ -114,7 +118,6 @@ STAGES = (
     "diarized",
     "enriched",
     "exported",
-    "indexed",
 )
 
 

@@ -67,6 +67,24 @@ def _dominant_speaker(segments: list[Segment]) -> str | None:
     return best if chars / total >= SPEAKER_DOMINANCE else None
 
 
+def _clean_chapters(chapters: list[dict] | None) -> list[dict]:
+    """Descarta capítulos sin `start` y los ordena.
+
+    Un índice escrito a mano puede venir desordenado o incompleto; asumir lo
+    contrario costaba un KeyError o etiquetas equivocadas.
+    """
+    limpios = []
+    for chapter in chapters or []:
+        start = chapter.get("start")
+        if start is None:
+            continue
+        try:
+            limpios.append({"start": float(start), "title": chapter.get("title")})
+        except (TypeError, ValueError):
+            continue
+    return sorted(limpios, key=lambda c: c["start"])
+
+
 def _chapter_at(chapters: list[dict], start: float) -> str | None:
     title = None
     for chapter in chapters:
@@ -77,8 +95,21 @@ def _chapter_at(chapters: list[dict], start: float) -> str | None:
     return title
 
 
-def _boundary_set(chapters: list[dict] | None) -> set[float]:
-    return {float(c["start"]) for c in (chapters or []) if c.get("start") is not None}
+def _usable_boundaries(chapters: list[dict], min_gap: float) -> set[float]:
+    """Fronteras de capítulo lo bastante separadas para no fragmentar el índice.
+
+    Un episodio con un capítulo cada 10 s produciría chunks de 10 s: inútiles
+    para recuperar (un embedding de una frase no captura nada) y multiplicando
+    por diez el tamaño del índice. Se respetan las fronteras que caen a más de
+    `min_gap` de la anterior aceptada.
+    """
+    usables: set[float] = set()
+    ultima = None
+    for chapter in chapters:
+        if ultima is None or chapter["start"] - ultima >= min_gap:
+            usables.add(chapter["start"])
+            ultima = chapter["start"]
+    return usables
 
 
 def chunk_segments(
@@ -90,11 +121,15 @@ def chunk_segments(
     overlap_ratio: float = OVERLAP_RATIO,
 ) -> list[Chunk]:
     """Agrupa segmentos en chunks solapados."""
-    segments = [s for s in segments if s.text.strip()]
+    segments = sorted(
+        (s for s in segments if s.text.strip()), key=lambda s: (s.start, s.end)
+    )
     if not segments:
         return []
 
-    boundaries = _boundary_set(chapters)
+    chapters = _clean_chapters(chapters)
+    # La frontera de capítulo manda, pero no por debajo de medio chunk.
+    boundaries = _usable_boundaries(chapters, target_sec / 2)
     chunks: list[Chunk] = []
     start_index = 0
 
@@ -102,6 +137,7 @@ def chunk_segments(
         buffer: list[Segment] = []
         index = start_index
         origin = segments[start_index].start
+        cerrado_por_capitulo = False
 
         while index < len(segments):
             segment = segments[index]
@@ -110,6 +146,7 @@ def chunk_segments(
             # Un capítulo nuevo empieza aquí: cerrar el chunk para que las
             # fronteras coincidan con las del autor (§8.1).
             if buffer and segment.start in boundaries:
+                cerrado_por_capitulo = True
                 break
             if buffer and elapsed > max_sec:
                 break
@@ -130,7 +167,7 @@ def chunk_segments(
                     end_sec=buffer[-1].end,
                     content=content,
                     speaker=_dominant_speaker(buffer),
-                    chapter=_chapter_at(chapters or [], buffer[0].start),
+                    chapter=_chapter_at(chapters, buffer[0].start),
                     segment_count=len(buffer),
                 )
             )
@@ -144,6 +181,12 @@ def chunk_segments(
 
         if index >= len(segments):
             break
+
+        if cerrado_por_capitulo:
+            # Un capítulo es frontera dura: solapar a través de ella partiría
+            # el chunk siguiente en un trozo inútil y mezclaría dos temas.
+            start_index = index
+            continue
 
         # Retroceder para solapar, sin quedarse nunca parado.
         span = buffer[-1].end - buffer[0].start

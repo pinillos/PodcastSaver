@@ -43,6 +43,8 @@ podcast-kb process 1 --force-whisper        # …o transcribe aunque lo haya
 podcast-kb bench tramo.wav                  # compara motores y modelos (§5.3)
 podcast-kb index --dry-run                  # cuántos chunks saldrían
 podcast-kb index --dsn "postgresql://…"     # chunking + embeddings + carga
+podcast-kb doctor                           # verifica el entorno
+podcast-kb doctor --dsn "postgresql://…"    # …y el despliegue (RLS incluido)
 ```
 
 ### Resolver las feedUrl reales
@@ -142,6 +144,8 @@ derivada más estado de ejecución. Si divergen, gana el YAML.
 - [x] Carga incremental por doble checksum, reutilizando vectores ya guardados
 - [x] Esquema y RPC `hybrid_search` verificados contra Postgres 16
 - [ ] **PWA de búsqueda** con `<audio>` y salto al segundo (§9)
+- [x] Login por enlace mágico: sin sesión no hay búsqueda
+- [x] `podcast-kb doctor`, que comprueba que el RLS está realmente aplicado
 - [ ] Fijar el modelo de embeddings y desplegar en Supabase
 
 Fases siguientes: decisión de diarización antes del backfill (3), volumen (4).

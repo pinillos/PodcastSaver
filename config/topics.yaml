@@ -1,0 +1,38 @@
+# Taxonomía controlada de temas (§6 del diseño).
+#
+# El enriquecimiento debe ceñirse a esta lista. Sin ella los temas divergen
+# —"agentes", "agentes IA", "agentic", "AI agents"— y el filtrado por facetas
+# deja de servir. El cajón `otros` recoge lo que no encaje, y se revisa cada
+# cierto tiempo para promover lo que se repita.
+
+temas:
+  - id: modelos-frontera
+    descripcion: Lanzamientos y capacidades de los modelos grandes.
+  - id: open-source
+    descripcion: Modelos y herramientas abiertas, licencias, pesos.
+  - id: agentes
+    descripcion: Agentes, orquestación, herramientas, MCP.
+  - id: herramientas-dev
+    descripcion: Asistentes de código, IDEs, flujos de desarrollo.
+  - id: rag-busqueda
+    descripcion: RAG, embeddings, bases vectoriales, recuperación.
+  - id: entrenamiento
+    descripcion: Fine-tuning, destilación, datos de entrenamiento, RL.
+  - id: infraestructura
+    descripcion: GPUs, chips, inferencia, costes de cómputo, centros de datos.
+  - id: multimodal
+    descripcion: Imagen, vídeo, voz, modelos de mundo.
+  - id: robotica
+    descripcion: Robots, humanoides, IA encarnada.
+  - id: negocio
+    descripcion: Aplicación a negocio, casos de uso, productividad, empleo.
+  - id: mercado
+    descripcion: Financiación, valoraciones, competencia, burbuja.
+  - id: regulacion
+    descripcion: Legislación, derechos de autor, privacidad.
+  - id: seguridad-alineamiento
+    descripcion: Alineamiento, riesgos, evaluaciones, jailbreaks.
+  - id: sociedad
+    descripcion: Impacto social, educación, desinformación.
+  - id: otros
+    descripcion: Cajón temporal. Revisar periódicamente.

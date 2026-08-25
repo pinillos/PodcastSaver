@@ -54,12 +54,29 @@ class ExportInput:
     source: str = "rss"
 
 
-def episode_filename(published_at: str, title: str) -> str:
-    return f"{published_at[:10]}-{slugify(title)}.md"
+def episode_filename(published_at: str, title: str, guid: str | None = None) -> str:
+    """Nombre de fichero estable y único.
+
+    El slug se recorta a 60 caracteres, así que dos títulos largos que
+    empiecen igual —«Analizamos a fondo el nuevo modelo que presenta X» vs
+    «…que presenta Y»— producían el mismo nombre y un episodio sobrescribía
+    al otro en silencio. Se añade un sufijo del guid cuando hay riesgo.
+    """
+    base = f"{published_at[:10]}-{slugify(title)}"
+    if guid and len(slugify(title, max_length=1000)) > 60:
+        base += "-" + hashlib.sha256(guid.encode("utf-8")).hexdigest()[:6]
+    return base + ".md"
 
 
-def md_path_for(podcast_slug: str, published_at: str, title: str, *, root: Path = TRANSCRIPTS_DIR) -> Path:
-    return Path(root) / podcast_slug / episode_filename(published_at, title)
+def md_path_for(
+    podcast_slug: str,
+    published_at: str,
+    title: str,
+    *,
+    guid: str | None = None,
+    root: Path = TRANSCRIPTS_DIR,
+) -> Path:
+    return Path(root) / podcast_slug / episode_filename(published_at, title, guid)
 
 
 def build_front_matter(data: ExportInput) -> dict:
@@ -161,7 +178,9 @@ def meta_checksum(markdown: str) -> str:
 
 
 def write_episode(data: ExportInput, *, root: Path = TRANSCRIPTS_DIR) -> Path:
-    path = md_path_for(data.podcast_slug, data.published_at, data.episode_title, root=root)
+    path = md_path_for(
+        data.podcast_slug, data.published_at, data.episode_title, guid=data.guid, root=root
+    )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_markdown(data), encoding="utf-8")
     return path

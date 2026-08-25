@@ -175,7 +175,8 @@ def process_episode(
     # 5. Artefactos: .md para humanos e indexado, .segments.json.gz como
     #    materia prima para rehacer el chunking sin retranscribir (§7.2).
     md_path = export.md_path_for(
-        row["podcast_slug"], row["published_at"], row["title"], root=transcripts_root
+        row["podcast_slug"], row["published_at"], row["title"],
+        guid=row["guid"], root=transcripts_root,
     )
     segments_path = md_path.parent / (md_path.stem + seg_mod.SEGMENTS_SUFFIX)
     outcome.segments_path = seg_mod.save_segments(segments, segments_path)

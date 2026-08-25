@@ -50,7 +50,7 @@ class Engine:
     def build_command(self, wav: Path, out_prefix: Path, **kw) -> list[str]:
         raise NotImplementedError
 
-    def output_json_path(self, out_prefix: Path) -> Path:
+    def output_json_path(self, out_prefix: Path, wav: Path) -> Path:
         raise NotImplementedError
 
     def available(self) -> bool:
@@ -103,7 +103,7 @@ class WhisperCppEngine(Engine):
             cmd += ["-ml", "1", "-sow"]
         return cmd
 
-    def output_json_path(self, out_prefix: Path) -> Path:
+    def output_json_path(self, out_prefix: Path, wav: Path) -> Path:
         return Path(str(out_prefix) + ".json")
 
 
@@ -143,9 +143,12 @@ class MlxWhisperEngine(Engine):
             cmd += ["--word-timestamps", "True"]
         return cmd
 
-    def output_json_path(self, out_prefix: Path) -> Path:
-        # mlx_whisper nombra la salida como el fichero de entrada.
-        return out_prefix.parent / (out_prefix.name + ".json")
+    def output_json_path(self, out_prefix: Path, wav: Path) -> Path:
+        # mlx_whisper nombra la salida por el fichero de ENTRADA, no por el
+        # prefijo. Derivarla del prefijo funcionaba de casualidad en el
+        # pipeline (donde coinciden) y fallaba siempre en el benchmark, que
+        # añade sufijos de motor y modelo al prefijo.
+        return out_prefix.parent / (wav.stem + ".json")
 
 
 ENGINES: dict[str, type[Engine]] = {
@@ -194,7 +197,7 @@ def transcribe(
     if result.returncode != 0:
         raise TranscribeError(f"{eng.name} falló ({result.returncode}): {result.stderr[-800:]}")
 
-    json_path = eng.output_json_path(out_prefix)
+    json_path = eng.output_json_path(out_prefix, wav)
     if not json_path.exists():
         raise TranscribeError(f"{eng.name} no generó {json_path}")
 

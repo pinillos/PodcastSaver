@@ -483,6 +483,37 @@ def index_cmd(
 
 
 @app.command()
+def doctor(
+    dsn: Optional[str] = typer.Option(
+        None, "--dsn", envvar="PODCAST_KB_DSN",
+        help="Comprueba también el backend Postgres.",
+    ),
+    db_path: str = DbOption,
+) -> None:
+    """Verifica el entorno y, con --dsn, el despliegue.
+
+    Lo importante que comprueba: que el RLS está activo. Sin él las tablas
+    son legibles con la anon key y el corpus entero es público (§7.5, §12).
+    """
+    from . import doctor as doctor_mod
+
+    comprobaciones = doctor_mod.comprobar_local(db_path)
+    if dsn:
+        comprobaciones += doctor_mod.comprobar_backend(dsn)
+
+    iconos = {doctor_mod.OK: "[green]✓[/]", doctor_mod.AVISO: "[yellow]·[/]",
+              doctor_mod.ERROR: "[red]✗[/]"}
+    for c in comprobaciones:
+        console.print(f"  {iconos[c.estado]} [bold]{c.nombre}[/]  [dim]{c.detalle}[/]")
+
+    errores = sum(1 for c in comprobaciones if c.estado == doctor_mod.ERROR)
+    avisos = sum(1 for c in comprobaciones if c.estado == doctor_mod.AVISO)
+    console.print(f"\n{errores} errores, {avisos} avisos.")
+    if errores:
+        raise typer.Exit(1)
+
+
+@app.command()
 def bench(
     wav: str = typer.Argument(..., help="WAV ya normalizado. Usa un tramo de tertulia."),
     engines: str = typer.Option("whisper.cpp", "--engines", help="Lista separada por comas."),

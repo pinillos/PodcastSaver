@@ -1,7 +1,7 @@
 // Cachea solo el armazón. Los resultados NUNCA se cachean: son contenido con
 // derechos de autor y el §12 pide no distribuirlo (y además caducan).
 const CACHE = "podcast-kb-v1";
-const ARMAZON = ["./", "index.html", "app.css", "app.js", "icon.svg", "manifest.webmanifest"];
+const ARMAZON = ["./", "index.html", "app.css", "app.js", "auth.js", "icon.svg", "manifest.webmanifest"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ARMAZON)));

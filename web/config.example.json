@@ -1,4 +1,6 @@
 {
+  "supabaseUrl": "https://<proyecto>.supabase.co",
+  "anonKey": "<anon key: es pública por diseño; lo que protege el corpus es el RLS>",
   "functionsUrl": "https://<proyecto>.supabase.co/functions/v1",
   "podcasts": [
     { "slug": "ia-semanal",         "title": "Inteligencia Artificial Semanal" },

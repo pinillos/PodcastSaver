@@ -5,7 +5,15 @@
 // Android: Chrome lo manda al gestor de descargas o a una app externa, y el
 // fragmento se pierde por el camino.
 
-const config = await fetch("config.json").then((r) => r.json()).catch(() => ({}));
+import { token, enviarEnlace, cerrarSesion } from "./auth.js";
+
+const config = await fetch("config.json").then((r) => r.json()).catch(() => null);
+if (!config?.functionsUrl) {
+  document.getElementById("resultados").innerHTML =
+    '<p class="estado">Falta <code>web/config.json</code>. Copia ' +
+    "<code>config.example.json</code> y rellena la URL del proyecto.</p>";
+  throw new Error("sin configuración");
+}
 
 // Margen de seguridad: con inserción dinámica de publicidad, la copia que se
 // reproduce puede llevar cuñas distintas a la que se transcribió, y los
@@ -91,12 +99,12 @@ async function buscar(consulta) {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        authorization: `Bearer ${sesion()}`,
+        authorization: `Bearer ${await token(config)}`,
       },
       body: JSON.stringify(cuerpo),
     });
     if (resp.status === 401) {
-      resultados.innerHTML = '<p class="estado">Sesión caducada. Vuelve a entrar.</p>';
+      mostrarEntrada("La sesión ha caducado. Pide otro enlace.");
       return;
     }
     datos = await resp.json();
@@ -218,16 +226,42 @@ $("buscador").addEventListener("submit", (e) => {
   }
 });
 
-function sesion() {
-  // Supabase Auth guarda la sesión en localStorage. Se lee de forma
-  // defensiva: en una ventana privada el acceso puede lanzar.
-  try {
-    const clave = Object.keys(localStorage).find((k) => k.endsWith("-auth-token"));
-    return clave ? JSON.parse(localStorage.getItem(clave)).access_token : "";
-  } catch {
-    return "";
+function mostrarEntrada(mensaje) {
+  $("entrar").hidden = false;
+  $("buscador").hidden = true;
+  $("filtros").hidden = true;
+  $("salir").hidden = true;
+  resultados.innerHTML = "";
+  if (mensaje) {
+    $("entrar-aviso").hidden = false;
+    $("entrar-aviso").textContent = mensaje;
   }
 }
+
+function mostrarBuscador() {
+  $("entrar").hidden = true;
+  $("buscador").hidden = false;
+  $("filtros").hidden = false;
+  $("salir").hidden = false;
+}
+
+$("form-entrar").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const aviso = $("entrar-aviso");
+  aviso.hidden = false;
+  aviso.textContent = "Enviando…";
+  try {
+    await enviarEnlace(config, $("email").value.trim());
+    aviso.textContent = "Enlace enviado. Revisa tu correo.";
+  } catch (err) {
+    aviso.textContent = `No se pudo enviar: ${err.message}`;
+  }
+});
+
+$("salir").addEventListener("click", () => {
+  cerrarSesion();
+  mostrarEntrada("Sesión cerrada.");
+});
 
 // Rellenar el selector de podcasts desde la configuración.
 for (const p of config.podcasts ?? []) {
@@ -237,11 +271,16 @@ for (const p of config.podcasts ?? []) {
   $("f-podcast").appendChild(opcion);
 }
 
-// Permitir enlazar una búsqueda concreta.
-const inicial = new URLSearchParams(location.search).get("q");
-if (inicial) {
-  $("q").value = inicial;
-  buscar(inicial);
+// Sin sesión no se enseña ni la caja de búsqueda.
+if (await token(config)) {
+  mostrarBuscador();
+  const inicial = new URLSearchParams(location.search).get("q");
+  if (inicial) {
+    $("q").value = inicial;
+    buscar(inicial);
+  }
+} else {
+  mostrarEntrada();
 }
 
 if ("serviceWorker" in navigator) {

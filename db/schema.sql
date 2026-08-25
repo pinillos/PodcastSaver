@@ -62,8 +62,9 @@ create table chunks (
   unique (episode_id, idx)
 );
 
-create index chunks_tsv_es_idx on chunks using gin (tsv_es) where language = 'es';
-create index chunks_tsv_en_idx on chunks using gin (tsv_en) where language = 'en';
+-- NO parciales a propósito: ver §7.4.
+create index chunks_tsv_es_idx on chunks using gin (tsv_es);
+create index chunks_tsv_en_idx on chunks using gin (tsv_en);
 
 create index chunks_embedding_idx on chunks
   using hnsw (embedding halfvec_cosine_ops);

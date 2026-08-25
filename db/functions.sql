@@ -1,8 +1,8 @@
 -- RPC de búsqueda híbrida — §8.3, §8.4
 -- Generado desde docs/diseno-v2.md. Editar allí y regenerar.
 
--- El embedding de la consulta se calcula FUERA (Edge Function):
--- Postgres no ejecuta el modelo. Si no se pasa, la búsqueda es solo léxica.
+-- El embedding de la consulta se calcula FUERA (Edge Function).
+-- Si no se pasa, la búsqueda es solo léxica.
 
 create or replace function hybrid_search(
   q             text,
@@ -25,31 +25,50 @@ returns table (
 language sql stable
 set hnsw.iterative_scan = 'relaxed_order'
 as $$
-with lex as (
+with lex_es as (
+  select c.id, ts_rank_cd(c.tsv_es, websearch_to_tsquery('spanish', q)) as rank
+  from chunks c
+  where lang = 'es'
+    -- El idioma de la FILA, además del de la consulta: la configuración
+    -- `english` tokeniza texto español sin quejarse, así que sin esto una
+    -- búsqueda en inglés devolvería chunks en español mal analizados.
+    and c.language = 'es'
+    and c.tsv_es @@ websearch_to_tsquery('spanish', q)
+    and (podcast_ids    is null or c.podcast_id = any(podcast_ids))
+    and (date_from      is null or c.published_at >= date_from)
+    and (date_to        is null or c.published_at <= date_to)
+    and (speaker_filter is null or c.speaker = speaker_filter)
+    and (topics_filter  is null or exists (
+           select 1 from episodes e
+           where e.id = c.episode_id and e.topics && topics_filter))
+  order by rank desc
+  limit arm_limit
+),
+lex_en as (
+  select c.id, ts_rank_cd(c.tsv_en, websearch_to_tsquery('english', q)) as rank
+  from chunks c
+  where lang = 'en'
+    -- El idioma de la FILA, además del de la consulta: la configuración
+    -- `english` tokeniza texto español sin quejarse, así que sin esto una
+    -- búsqueda en inglés devolvería chunks en español mal analizados.
+    and c.language = 'en'
+    and c.tsv_en @@ websearch_to_tsquery('english', q)
+    and (podcast_ids    is null or c.podcast_id = any(podcast_ids))
+    and (date_from      is null or c.published_at >= date_from)
+    and (date_to        is null or c.published_at <= date_to)
+    and (speaker_filter is null or c.speaker = speaker_filter)
+    and (topics_filter  is null or exists (
+           select 1 from episodes e
+           where e.id = c.episode_id and e.topics && topics_filter))
+  order by rank desc
+  limit arm_limit
+),
+lex as (
+  -- Una rama por idioma, cada una con su columna FIJA. Elegirla con un CASE
+  -- impide que el planificador use el índice GIN en cuanto el idioma es un
+  -- parámetro: ver §7.4, está medido.
   select id, row_number() over (order by rank desc) as rnk
-  from (
-    select c.id,
-           ts_rank_cd(case when lang = 'en' then c.tsv_en else c.tsv_es end,
-                      websearch_to_tsquery(
-                        (case when lang = 'en' then 'english'
-                              else 'spanish' end)::regconfig, q)
-           ) as rank
-    from chunks c
-    where c.language = lang
-      and (case when lang = 'en' then c.tsv_en else c.tsv_es end)
-          @@ websearch_to_tsquery(
-               (case when lang = 'en' then 'english'
-                     else 'spanish' end)::regconfig, q)
-      and (podcast_ids    is null or c.podcast_id = any(podcast_ids))
-      and (date_from      is null or c.published_at >= date_from)
-      and (date_to        is null or c.published_at <= date_to)
-      and (speaker_filter is null or c.speaker = speaker_filter)
-      and (topics_filter  is null or exists (
-             select 1 from episodes e
-             where e.id = c.episode_id and e.topics && topics_filter))
-    order by rank desc
-    limit arm_limit
-  ) t
+  from (select * from lex_es union all select * from lex_en) t
 ),
 vec as (
   -- Sin embedding de consulta, esta rama queda vacía y la fusión degrada a

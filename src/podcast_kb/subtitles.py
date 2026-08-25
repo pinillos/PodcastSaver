@@ -89,8 +89,11 @@ def parse_subtitles(raw: str | bytes) -> list[Segment]:
             # Fuera de un cue solo hay cabeceras, identificadores y números
             # de orden de SRT; nada de eso es diálogo.
             continue
-        if _SKIP_BLOCK_RE.match(stripped) or _SRT_INDEX_RE.match(stripped):
+        if _SKIP_BLOCK_RE.match(stripped):
             continue
+        # Ojo: NO se descartan aquí las líneas que son solo un número. Dentro
+        # de un cue, «2024» es diálogo; el índice de SRT va siempre antes de
+        # la marca de tiempo, y ahí sí se descarta (rama de arriba).
         buffer.append(stripped)
 
     flush()

@@ -16,6 +16,7 @@
            enterkeyhint="search" autofocus>
     <button type="submit" aria-label="Buscar">Buscar</button>
   </form>
+  <button id="salir" hidden class="enlace">Cerrar sesión</button>
   <details id="filtros">
     <summary>Filtros</summary>
     <div class="rejilla">
@@ -28,6 +29,16 @@
     </div>
   </details>
 </header>
+
+<section id="entrar" hidden>
+  <h2>Entrar</h2>
+  <p>Esta base de conocimiento es privada. Te enviamos un enlace de acceso.</p>
+  <form id="form-entrar">
+    <input id="email" type="email" required placeholder="tu@correo.com" autocomplete="email">
+    <button type="submit">Enviar enlace</button>
+  </form>
+  <p class="aviso" id="entrar-aviso" hidden></p>
+</section>
 
 <main id="resultados" aria-live="polite">
   <p class="vacio">Escribe algo y pulsa buscar.</p>
