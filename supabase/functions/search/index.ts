@@ -16,8 +16,19 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const EMBEDDING_URL = Deno.env.get("EMBEDDING_URL");
 const EMBEDDING_TOKEN = Deno.env.get("EMBEDDING_TOKEN");
 
+// Jardín cerrado: solo estas cuentas pueden buscar. Estar autenticado en el
+// proyecto de Supabase NO basta —si el registro público está abierto,
+// cualquiera se daría de alta y leería el corpus entero—. Sin la variable
+// puesta no entra nadie: es preferible un fallo visible a una fuga silenciosa.
+const ALLOWED_EMAILS = new Set(
+  (Deno.env.get("ALLOWED_EMAILS") ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean),
+);
+
 const CORS = {
-  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
+  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "null",
   "Access-Control-Allow-Headers": "authorization, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
@@ -80,6 +91,14 @@ Deno.serve(async (req) => {
   const { data: { user }, error: authError } = await anon.auth.getUser();
   if (authError || !user) return json({ error: "sesión no válida" }, 401);
 
+  if (ALLOWED_EMAILS.size === 0) {
+    console.error("ALLOWED_EMAILS no está configurada: se rechaza todo.");
+    return json({ error: "servicio no configurado" }, 503);
+  }
+  if (!user.email || !ALLOWED_EMAILS.has(user.email.toLowerCase())) {
+    return json({ error: "esta cuenta no tiene acceso" }, 403);
+  }
+
   let body: SearchBody;
   try {
     body = await req.json();
@@ -89,6 +108,9 @@ Deno.serve(async (req) => {
 
   const q = (body.q ?? "").trim();
   if (!q) return json({ error: "consulta vacía" }, 400);
+  // Una consulta enorme se convierte en una tsquery enorme, y si hay
+  // EMBEDDING_URL de pago, en dinero.
+  if (q.length > 500) return json({ error: "consulta demasiado larga" }, 400);
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 

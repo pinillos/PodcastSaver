@@ -13,7 +13,21 @@ cliente web.
 | `SUPABASE_SERVICE_ROLE_KEY` | sí | Llamar al RPC saltando RLS. **Nunca** en el cliente. |
 | `EMBEDDING_URL` | no | Endpoint que devuelve el vector de la consulta. Sin ella, la búsqueda es solo léxica. |
 | `EMBEDDING_TOKEN` | no | Bearer para ese endpoint. |
-| `ALLOWED_ORIGIN` | no | Origen de la PWA. Por defecto `*`. |
+| `ALLOWED_EMAILS` | **sí** | Cuentas con acceso, separadas por comas. Sin ella la función rechaza todo con 503. |
+| `ALLOWED_ORIGIN` | no | Origen de la PWA. Por defecto `null` (sin CORS). |
+
+## Por qué hace falta `ALLOWED_EMAILS`
+
+El RPC se llama con `service_role`, que salta el RLS: quien pase la
+autenticación ve **todo el corpus**. Si el registro público del proyecto está
+abierto —lo está por defecto—, cualquiera podría darse de alta y leerlo.
+
+Por eso hay una lista explícita, y por eso sin ella la función devuelve 503 en
+vez de abrirse. Complementariamente, en el panel de Supabase:
+
+- **Authentication → Providers → Email**: desactivar «Allow new users to sign up».
+- **Authentication → URL Configuration**: fijar la *Site URL* y las *Redirect URLs*
+  a la de la PWA, para que un enlace mágico no pueda redirigirse a otro sitio.
 
 ## Sobre el embedding
 

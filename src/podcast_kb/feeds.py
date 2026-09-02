@@ -18,6 +18,7 @@ from typing import Any
 import feedparser
 import httpx
 
+from . import net
 from .chapters import extract_chapters
 from .urls import enclosure_sha256, resolve_relative
 
@@ -196,6 +197,7 @@ def fetch_feed(
     etag: str | None = None,
     last_modified: str | None = None,
     client: httpx.Client | None = None,
+    allow_private: bool | None = None,
 ) -> tuple[bytes | None, str | None, str | None, str]:
     """Descarga el feed usando caché condicional (§4.2).
 
@@ -211,27 +213,32 @@ def fetch_feed(
         headers["If-Modified-Since"] = last_modified
 
     owns_client = client is None
-    client = client or httpx.Client(timeout=60, follow_redirects=True)
+    # follow_redirects=False a propósito: las sigue net.get_validado
+    # validando cada salto (si no, basta un redirect para saltarse el filtro).
+    client = client or httpx.Client(timeout=60, follow_redirects=False)
     try:
-        resp = client.get(rss_url, headers=headers)
+        resp = net.get_validado(client, rss_url, headers=headers,
+                                permitir_privadas=allow_private)
+        # §12: respetar el rate limiting que pida el servidor.
+        if resp.status_code == 429:
+            retry_after = resp.headers.get("Retry-After", "?")
+            raise FeedError(f"429 del servidor; Retry-After={retry_after}")
+        final_url = str(resp.url)
+        if resp.status_code == 304:
+            return None, etag, last_modified, final_url
+        resp.raise_for_status()
+        contenido = net.leer_acotado(resp, net.MAX_FEED_BYTES, que="el feed")
+        return (
+            contenido,
+            resp.headers.get("ETag"),
+            resp.headers.get("Last-Modified"),
+            final_url,
+        )
+    except (net.UrlNoPermitida, net.DemasiadoGrande) as exc:
+        raise FeedError(str(exc)) from exc
     finally:
         if owns_client:
             client.close()
-
-    # §12: respetar el rate limiting que pida el servidor.
-    if resp.status_code == 429:
-        retry_after = resp.headers.get("Retry-After", "?")
-        raise FeedError(f"429 del servidor; Retry-After={retry_after}")
-    final_url = str(resp.url)
-    if resp.status_code == 304:
-        return None, etag, last_modified, final_url
-    resp.raise_for_status()
-    return (
-        resp.content,
-        resp.headers.get("ETag"),
-        resp.headers.get("Last-Modified"),
-        final_url,
-    )
 
 
 def _to_iso(struct_time: Any) -> str | None:
@@ -514,7 +521,9 @@ def parse_feed(raw_xml: bytes, base_url: str | None = None) -> FeedResult:
     return result
 
 
-def inspect_feed(rss_url: str, *, client: httpx.Client | None = None) -> FeedInspection:
+def inspect_feed(
+    rss_url: str, *, client: httpx.Client | None = None, allow_private: bool | None = None
+) -> FeedInspection:
     """Descarga y valida un feed, sin escribir nada.
 
     Comprueba lo que hay que comprobar antes de dar de alta un podcast: que

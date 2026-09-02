@@ -177,9 +177,20 @@ function tarjeta(ep, consulta) {
   return nodo;
 }
 
+/** Solo http(s): `javascript:` o `data:` en un src no deberían llegar nunca,
+ *  pero el audio_url viene de un feed de terceros. */
+function urlDeAudioSegura(url) {
+  try {
+    return ["http:", "https:"].includes(new URL(url, location.href).protocol) ? url : null;
+  } catch {
+    return null;
+  }
+}
+
 function reproducir(ep, momento) {
   const panel = $("reproductor");
-  if (!ep.audio_url) {
+  const fuente = urlDeAudioSegura(ep.audio_url);
+  if (!fuente) {
     panel.hidden = false;
     $("p-titulo").textContent = ep.title;
     $("p-aviso").hidden = false;
@@ -189,7 +200,7 @@ function reproducir(ep, momento) {
 
   const desde = Math.max(0, momento.start_sec - MARGEN_SEG);
   if (audio.dataset.episodio !== ep.episode_id) {
-    audio.src = ep.audio_url;
+    audio.src = fuente;
     audio.dataset.episodio = ep.episode_id;
     // El <audio> nace con preload="none" para no bajar 60 MB al abrir la
     // página. Pero entonces asignar `src` no dispara nada, así que

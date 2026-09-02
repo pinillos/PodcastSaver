@@ -51,6 +51,10 @@ def add(
     """
     if not rss and not apple_id:
         raise typer.BadParameter("Hace falta --rss o --apple-id.")
+    if not config.SLUG_RE.match(slug):
+        raise typer.BadParameter(
+            f"slug inválido: {slug!r}. Solo minúsculas, dígitos y guiones."
+        )
 
     path = Path(config_path)
     entries = config.load_podcasts(path) if path.exists() else []

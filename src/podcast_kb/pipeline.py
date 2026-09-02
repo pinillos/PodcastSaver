@@ -10,7 +10,9 @@ from pathlib import Path
 
 import httpx
 
-from . import audio, db, export, fixups as fixups_mod, segments as seg_mod, subtitles, transcribe
+from . import audio, db, export, fixups as fixups_mod, net
+from . import segments as seg_mod
+from . import subtitles, transcribe
 from .feeds import USER_AGENT
 from .paths import config_path
 
@@ -51,13 +53,26 @@ def load_prompt(path: Path | str | None) -> str | None:
     return " ".join(path.read_text(encoding="utf-8").split())
 
 
-def fetch_subtitles(url: str, *, client: httpx.Client | None = None) -> str:
+def fetch_subtitles(
+    url: str, *, client: httpx.Client | None = None, allow_private: bool | None = None
+) -> str:
+    """Descarga el subtítulo que declara el feed.
+
+    La URL viene de un tercero, así que se valida el destino y se acota el
+    tamaño: `resp.text` sobre una respuesta sin tope se come la memoria.
+    """
     owns_client = client is None
-    client = client or httpx.Client(timeout=120, follow_redirects=True)
+    client = client or httpx.Client(timeout=120, follow_redirects=False)
     try:
-        resp = client.get(url, headers={"User-Agent": USER_AGENT})
-        resp.raise_for_status()
-        return resp.text
+        resp = net.get_validado(
+            client, url, headers={"User-Agent": USER_AGENT}, permitir_privadas=allow_private
+        )
+        try:
+            resp.raise_for_status()
+            crudo = net.leer_acotado(resp, net.MAX_SUBTITULO_BYTES, que="el subtítulo")
+        finally:
+            resp.close()
+        return crudo.decode("utf-8-sig", errors="replace")
     finally:
         if owns_client:
             client.close()

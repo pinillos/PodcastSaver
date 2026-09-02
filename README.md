@@ -47,6 +47,12 @@ podcast-kb doctor                           # verifica el entorno
 podcast-kb doctor --dsn "postgresql://…"    # …y el despliegue (RLS incluido)
 ```
 
+Para el DSN, prefiere la variable `PODCAST_KB_DSN`: los argumentos de la línea de
+órdenes son visibles para otros procesos.
+
+```bash
+```
+
 ### Resolver las feedUrl reales
 
 ```bash
@@ -146,6 +152,7 @@ derivada más estado de ejecución. Si divergen, gana el YAML.
 - [ ] **PWA de búsqueda** con `<audio>` y salto al segundo (§9)
 - [x] Login por enlace mágico: sin sesión no hay búsqueda
 - [x] `podcast-kb doctor`, que comprueba que el RLS está realmente aplicado
+- [x] Revisión de seguridad: SSRF, topes de descarga, recorrido de rutas, lista de acceso
 - [ ] Fijar el modelo de embeddings y desplegar en Supabase
 
 Fases siguientes: decisión de diarización antes del backfill (3), volumen (4).

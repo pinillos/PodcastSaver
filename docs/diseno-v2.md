@@ -1134,6 +1134,43 @@ podcast-kb/                        # repositorio PRIVADO (§7.5)
 - Verificar que el uso de recursos y la instalación cumplen la política interna del equipo
   (§13).
 
+### 12.1 Superficie de ataque
+
+Todo lo que el sistema descarga —feed, audio, subtítulos— sale de un RSS de un tercero.
+Eso convierte al feed en la entrada no confiable principal, y hay dos consecuencias que
+no son evidentes:
+
+- **SSRF.** Un feed hostil, o uno legítimo comprometido, puede apuntar sus enclosures o
+  su `<podcast:transcript>` a `169.254.169.254` (metadatos de la nube, si el indexado
+  corre en un runner) o a `127.0.0.1` (servicios del portátil). Las URLs se validan
+  antes de pedirlas y **en cada redirección**: validar solo la primera no sirve de nada,
+  basta redirigir. `PODCAST_KB_ALLOW_PRIVATE_URLS=1` desactiva la comprobación para
+  desarrollo, y el `doctor` avisa si está puesta.
+- **Tamaño.** Nada obliga a un servidor a decir la verdad en `Content-Length`. Las
+  descargas van acotadas (32 MB el feed, 16 MB un subtítulo, 1 GB el audio) cortando
+  durante la lectura, no confiando en la cabecera.
+
+**El slug del podcast es un nombre de directorio**, así que se valida contra
+`^[a-z0-9][a-z0-9-]{0,63}$` al darlo de alta, y la ruta final se comprueba de nuevo
+antes de escribir.
+
+**Quién puede buscar.** El RPC se llama con `service_role`, que salta el RLS: quien pase
+la autenticación ve todo el corpus. Estar registrado en el proyecto de Supabase no basta
+—el registro público está abierto por defecto—, así que la Edge Function exige una lista
+explícita en `ALLOWED_EMAILS` y devuelve 503 si no está configurada. Además, en el panel:
+desactivar el alta de usuarios y fijar las *Redirect URLs*.
+
+**Lo que se revisó y estaba bien:** el XML de los feeds no es vulnerable a XXE ni a
+expansión de entidades (comprobado con ambas cargas); no hay SQL construido por
+concatenación; los subprocesos se invocan con lista de argumentos, nunca por shell; y la
+UI escapa el contenido del feed —títulos, hablantes y transcripción— sin dejar pasar
+inyección de HTML.
+
+**Riesgo aceptado y pendiente:** cuando se implemente el enriquecimiento (§6), el texto
+de la transcripción irá a un LLM. Ese texto lo escribe un tercero, así que el prompt debe
+tratarlo como dato, no como instrucciones, y la salida debe validarse contra la taxonomía
+de `config/topics.yaml` en vez de aceptarse tal cual.
+
 ---
 
 ## 13. Restricciones del equipo y coste

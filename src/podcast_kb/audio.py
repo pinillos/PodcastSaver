@@ -15,6 +15,7 @@ from pathlib import Path
 
 import httpx
 
+from . import net
 from .feeds import USER_AGENT
 
 FFMPEG = "ffmpeg"
@@ -42,6 +43,8 @@ def download_audio(
     *,
     expected_bytes: int | None = None,
     client: httpx.Client | None = None,
+    allow_private: bool | None = None,
+    max_bytes: int = net.MAX_AUDIO_BYTES,
 ) -> Path:
     """Descarga el enclosure si hace falta. Devuelve la ruta local."""
     dest = Path(dest)
@@ -52,14 +55,29 @@ def download_audio(
             return dest
 
     owns_client = client is None
-    client = client or httpx.Client(timeout=300, follow_redirects=True)
+    client = client or httpx.Client(timeout=300, follow_redirects=False)
     tmp = dest.with_suffix(dest.suffix + ".part")
     try:
-        with client.stream("GET", url, headers={"User-Agent": USER_AGENT}) as resp:
+        # La URL sale del feed: se valida el destino y se acota el tamaño.
+        resp = net.get_validado(
+            client, url, headers={"User-Agent": USER_AGENT}, permitir_privadas=allow_private
+        )
+        try:
             resp.raise_for_status()
+            escrito = 0
             with tmp.open("wb") as fh:
                 for chunk in resp.iter_bytes(chunk_size=1 << 16):
+                    escrito += len(chunk)
+                    if escrito > max_bytes:
+                        raise net.DemasiadoGrande(
+                            f"el audio supera el tope de {max_bytes:,} bytes"
+                        )
                     fh.write(chunk)
+        finally:
+            resp.close()
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
     finally:
         if owns_client:
             client.close()

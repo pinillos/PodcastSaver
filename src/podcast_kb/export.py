@@ -76,7 +76,13 @@ def md_path_for(
     guid: str | None = None,
     root: Path = TRANSCRIPTS_DIR,
 ) -> Path:
-    return Path(root) / podcast_slug / episode_filename(published_at, title, guid)
+    raiz = Path(root)
+    destino = raiz / podcast_slug / episode_filename(published_at, title, guid)
+    # Defensa en profundidad: `config.SLUG_RE` ya valida el slug, pero esta
+    # ruta se construye con datos que vienen de ficheros editables.
+    if not destino.resolve().is_relative_to(raiz.resolve()):
+        raise ValueError(f"la ruta se sale de {raiz}: slug {podcast_slug!r}")
+    return destino
 
 
 def build_front_matter(data: ExportInput) -> dict:

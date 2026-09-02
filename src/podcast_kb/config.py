@@ -5,6 +5,7 @@ SQLite es caché derivada. Si divergen, gana el YAML.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import yaml
@@ -14,6 +15,10 @@ from .paths import config_path
 DEFAULT_CONFIG_PATH = config_path("podcasts.yaml")
 
 _REQUIRED = ("slug", "language")
+
+# El slug se usa como nombre de directorio en transcripts/ y cache/. Sin
+# validarlo, un slug como `../../etc` escribe fuera del proyecto.
+SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 
 
 class ConfigError(RuntimeError):
@@ -40,6 +45,11 @@ def load_podcasts(path: Path | str = DEFAULT_CONFIG_PATH) -> list[dict]:
         if not entry.get("rss_url") and not entry.get("apple_id"):
             raise ConfigError(
                 f"`{entry['slug']}` necesita `rss_url` o `apple_id` para poder resolverse."
+            )
+        if not SLUG_RE.match(str(entry["slug"])):
+            raise ConfigError(
+                f"slug inválido: {entry['slug']!r}. Solo minúsculas, dígitos y guiones "
+                "(se usa como nombre de directorio)."
             )
         if entry["slug"] in slugs:
             raise ConfigError(f"slug duplicado en {path}: {entry['slug']!r}")

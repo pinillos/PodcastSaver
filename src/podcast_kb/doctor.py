@@ -7,7 +7,9 @@ el RLS: si `db/policies.sql` no se aplica, las tablas quedan legibles con la
 
 from __future__ import annotations
 
+import os
 import shutil
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -22,6 +24,57 @@ class Comprobacion:
     nombre: str
     estado: str
     detalle: str = ""
+
+
+def _seguridad() -> list[Comprobacion]:
+    """Cosas que dejan el sistema abierto sin dar ningún síntoma."""
+    salida = []
+
+    if os.environ.get("PODCAST_KB_ALLOW_PRIVATE_URLS") == "1":
+        salida.append(
+            Comprobacion(
+                "PODCAST_KB_ALLOW_PRIVATE_URLS",
+                AVISO,
+                "activo: un feed podría hacer que pidas URLs internas (SSRF). "
+                "Es para desarrollo y tests; apágalo fuera de ahí.",
+            )
+        )
+
+    if any("PODCAST_KB_DSN" not in a and "dbname" in a for a in sys.argv):
+        salida.append(
+            Comprobacion(
+                "--dsn en la línea de órdenes",
+                AVISO,
+                "los argumentos son visibles para otros procesos: usa PODCAST_KB_DSN.",
+            )
+        )
+
+    gitignore = project_root() / ".gitignore"
+    if gitignore.exists():
+        contenido = gitignore.read_text(encoding="utf-8")
+        faltan = [x for x in (".env", "config.json", "cache/") if x not in contenido]
+        salida.append(
+            Comprobacion("gitignore", OK, "cubre .env, config.json y cache/")
+            if not faltan
+            else Comprobacion("gitignore", ERROR, f"no ignora: {', '.join(faltan)}")
+        )
+
+    web_config = project_root() / "web" / "config.json"
+    if web_config.exists():
+        texto = web_config.read_text(encoding="utf-8")
+        # La anon key es pública por diseño; la service_role NUNCA va al cliente.
+        if "service_role" in texto or "SERVICE_ROLE" in texto:
+            salida.append(
+                Comprobacion(
+                    "web/config.json",
+                    ERROR,
+                    "parece contener una service_role key. Esa clave salta el RLS "
+                    "y el fichero lo sirve el navegador: rótala YA.",
+                )
+            )
+        else:
+            salida.append(Comprobacion("web/config.json", OK, "sin claves de servicio"))
+    return salida
 
 
 def _binarios() -> list[Comprobacion]:
@@ -184,4 +237,4 @@ def comprobar_backend(dsn: str) -> list[Comprobacion]:
 
 
 def comprobar_local(db_path: str | Path) -> list[Comprobacion]:
-    return _binarios() + _configuracion() + _modelos() + _estado_local(db_path)
+    return _seguridad() + _binarios() + _configuracion() + _modelos() + _estado_local(db_path)
