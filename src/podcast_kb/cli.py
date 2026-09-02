@@ -339,7 +339,13 @@ def episodes(
 
 @app.command()
 def process(
-    episode_id: int = typer.Argument(..., help="ID del episodio (ver `podcast-kb episodes`)."),
+    episode_id: Optional[int] = typer.Argument(
+        None, help="ID del episodio (ver `podcast-kb episodes`). Omítelo con --pending."
+    ),
+    pending: Optional[int] = typer.Option(
+        None, "--pending", "-n",
+        help="Procesa los N episodios pendientes más recientes, en vez de uno concreto.",
+    ),
     engine: str = typer.Option("whisper.cpp", "--engine", help="whisper.cpp | mlx-whisper"),
     model: str = typer.Option(transcribe.DEFAULT_MODEL, "--model"),
     no_vad: bool = typer.Option(False, "--no-vad", help="Desactiva el VAD (§5.8)."),
@@ -356,25 +362,60 @@ def process(
     db_path: str = DbOption,
 ) -> None:
     """Camino completo sobre un episodio: descarga → WAV → Whisper → .md."""
+    if (episode_id is None) == (pending is None):
+        raise typer.BadParameter("Indica un ID de episodio o --pending N, pero no ambos.")
+
     conn = db.connect(db_path)
     db.init_schema(conn)
-    try:
-        outcome = pipeline.process_episode(
-            conn, episode_id, engine=engine, model=model, vad=not no_vad,
-            word_timestamps=word_timestamps, keep_wav=keep_wav,
-            prefer_feed_transcript=not force_whisper,
-        )
-    except (ValueError, OSError, RuntimeError, httpx.HTTPError) as exc:
-        # Un fallo de red o de un binario externo se registra para reintento
-        # (§4.3), no se escupe como traceback.
-        console.print(f"[red]✗[/] {type(exc).__name__}: {exc}")
-        conn.execute(
-            "UPDATE episodes SET attempts = attempts + 1, last_error = ? WHERE id = ?",
-            (f"{type(exc).__name__}: {exc}"[:500], episode_id),
-        )
-        conn.commit()
-        raise typer.Exit(1) from exc
 
+    if pending is not None:
+        # Los que aún no tienen .md, del más reciente al más antiguo.
+        ids = [
+            fila["id"]
+            for fila in conn.execute(
+                "SELECT id FROM episodes WHERE md_path IS NULL "
+                "  AND (next_retry_at IS NULL OR next_retry_at <= ?) "
+                "ORDER BY published_at DESC LIMIT ?",
+                (db.utcnow(), pending),
+            )
+        ]
+        if not ids:
+            console.print("[dim]No hay episodios pendientes.[/]")
+            return
+    else:
+        ids = [episode_id]
+
+    fallos = 0
+    for numero, actual in enumerate(ids, start=1):
+        if len(ids) > 1:
+            console.print(f"\n[bold]({numero}/{len(ids)})[/] episodio {actual}")
+        try:
+            outcome = pipeline.process_episode(
+                conn, actual, engine=engine, model=model, vad=not no_vad,
+                word_timestamps=word_timestamps, keep_wav=keep_wav,
+                prefer_feed_transcript=not force_whisper,
+            )
+        except (ValueError, OSError, RuntimeError, httpx.HTTPError) as exc:
+            # Un fallo de red o de un binario externo se registra para
+            # reintento (§4.3), no se escupe como traceback, y en un lote no
+            # tira abajo los episodios que sí funcionan.
+            console.print(f"[red]✗[/] {type(exc).__name__}: {exc}")
+            conn.execute(
+                "UPDATE episodes SET attempts = attempts + 1, last_error = ? WHERE id = ?",
+                (f"{type(exc).__name__}: {exc}"[:500], actual),
+            )
+            conn.commit()
+            fallos += 1
+            continue
+        _render_outcome(outcome)
+
+    if fallos:
+        console.print(f"\n[red]{fallos} de {len(ids)} fallaron.[/] "
+                      "Se reintentarán la próxima vez.")
+        raise typer.Exit(1)
+
+
+def _render_outcome(outcome) -> None:
     console.print(f"[green]✓[/] {outcome.md_path}")
     console.print(f"  segmentos: {outcome.segments_path}")
     if outcome.source == "feed":
