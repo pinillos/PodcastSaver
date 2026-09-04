@@ -1,7 +1,14 @@
 # Guía paso a paso
 
-Versión legible en el navegador, con casillas para marcar por dónde vas:
-**https://claude.ai/code/artifact/d58b736d-4d79-4478-a942-38b4b02ffab8**
+Dos formas de leerla, con el mismo contenido:
+
+- **En el navegador**, con casillas para marcar por dónde vas:
+  https://claude.ai/code/artifact/d58b736d-4d79-4478-a942-38b4b02ffab8
+- **`docs/guia.html`**: fichero autocontenido. Se abre con doble clic, funciona
+  sin conexión y se puede enviar por correo. No pide nada a internet: las
+  tipografías van empotradas dentro del propio fichero.
+
+Incluye un diagrama de qué hace cada equipo y qué datos cruzan entre ellos.
 
 Escrita para seguirse sin conocimientos técnicos. Cubre desde instalar las
 herramientas hasta buscar desde el móvil, con los tiempos reales de cada paso
