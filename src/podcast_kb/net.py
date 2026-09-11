@@ -6,8 +6,19 @@ dé de alta, puede apuntar a donde quiera: al servicio de metadatos de la nube
 si el indexado corre en un runner, a `localhost` si corre en el portátil, o a
 un fichero de 100 GB para agotar el disco.
 
-Aquí se valida el destino y se acota el tamaño. Las redirecciones se siguen a
-mano porque validar solo la primera URL no sirve de nada: basta redirigir.
+Aquí se valida el destino y se acota el tamaño. Tres detalles que no son
+opcionales:
+
+1. Las redirecciones se siguen a mano, validando cada salto: validar solo la
+   primera URL no sirve de nada, basta redirigir.
+2. La IP que se valida es la IP a la que se conecta. Resolver para comprobar
+   y dejar que el cliente resuelva otra vez al conectar deja una ventana
+   (DNS rebinding): un DNS hostil puede contestar una IP pública a la
+   comprobación y `127.0.0.1` a la conexión. Se fija la IP validada y se
+   mandan el `Host` y el SNI originales, así que el certificado se sigue
+   verificando contra el nombre real.
+3. El cuerpo se lee en streaming. Un tope que se comprueba después de que
+   httpx se haya tragado la respuesta entera en memoria no acota nada.
 """
 
 from __future__ import annotations
@@ -15,7 +26,7 @@ from __future__ import annotations
 import ipaddress
 import os
 import socket
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import httpx
 
@@ -29,6 +40,10 @@ MAX_REDIRECCIONES = 5
 MAX_FEED_BYTES = 32 * 1024 * 1024
 MAX_SUBTITULO_BYTES = 16 * 1024 * 1024
 MAX_AUDIO_BYTES = 1024 * 1024 * 1024
+
+_VARIABLES_PROXY = (
+    "HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy",
+)
 
 
 class UrlNoPermitida(ValueError):
@@ -51,8 +66,13 @@ def _es_publica(ip: str) -> bool:
     )
 
 
-def validar_url(url: str, *, permitir_privadas: bool | None = None) -> None:
-    """Rechaza esquemas raros y destinos no públicos."""
+def validar_url(url: str, *, permitir_privadas: bool | None = None) -> list[str]:
+    """Rechaza esquemas raros y destinos no públicos.
+
+    Devuelve las IPs a las que resuelve el host, ya validadas, para que quien
+    conecte use esas y no vuelva a resolver. Devuelve `[]` cuando no se ha
+    validado nada (modo permisivo): no hay IP que fijar.
+    """
     if permitir_privadas is None:
         permitir_privadas = PERMITIR_PRIVADAS_POR_DEFECTO
     partes = urlsplit(url)
@@ -61,13 +81,14 @@ def validar_url(url: str, *, permitir_privadas: bool | None = None) -> None:
     if not partes.hostname:
         raise UrlNoPermitida(f"URL sin host: {url[:80]}")
     if permitir_privadas:
-        return
+        return []
 
     try:
         infos = socket.getaddrinfo(partes.hostname, partes.port or 0, proto=socket.IPPROTO_TCP)
     except socket.gaierror as exc:
         raise UrlNoPermitida(f"no se resuelve {partes.hostname}: {exc}") from exc
 
+    ips: list[str] = []
     for info in infos:
         ip = info[4][0]
         if not _es_publica(ip):
@@ -75,6 +96,56 @@ def validar_url(url: str, *, permitir_privadas: bool | None = None) -> None:
                 f"{partes.hostname} resuelve a {ip}, que no es una dirección pública. "
                 "Un feed no debería poder hacernos pedir esto."
             )
+        if ip not in ips:
+            ips.append(ip)
+    return ips
+
+
+def hay_proxy() -> bool:
+    """¿Sale el tráfico por un proxy?
+
+    Si lo hay, quien resuelve el nombre es el proxy: fijar la IP local no
+    protege de nada y además rompería el CONNECT. Se documenta como límite:
+    detrás de un proxy, la defensa contra SSRF es la del proxy.
+    """
+    return any(os.environ.get(nombre) for nombre in _VARIABLES_PROXY)
+
+
+def _fijar_ip_activo() -> bool:
+    if os.environ.get("PODCAST_KB_PIN_DNS") == "0":
+        return False
+    return not hay_proxy()
+
+
+def _peticion_fijada(
+    client: httpx.Client, url: str, ip: str, headers: dict[str, str] | None
+) -> httpx.Request:
+    """Petición idéntica pero conectando a `ip`, con Host y SNI originales."""
+    partes = urlsplit(url)
+    credenciales, _, autoridad = partes.netloc.rpartition("@")
+    literal = f"[{ip}]" if ":" in ip else ip
+    netloc = literal if partes.port is None else f"{literal}:{partes.port}"
+    if credenciales:
+        # Hay feeds privados con usuario y contraseña en la URL: si se pierden
+        # aquí, el servidor contesta 401 y parece que el feed se ha caído.
+        netloc = f"{credenciales}@{netloc}"
+    url_ip = urlunsplit((partes.scheme, netloc, partes.path, partes.query, ""))
+
+    cabeceras = dict(headers or {})
+    cabeceras["Host"] = autoridad
+    return client.build_request(
+        "GET", url_ip, headers=cabeceras,
+        extensions={"sni_hostname": partes.hostname},
+    )
+
+
+def url_final(respuesta: httpx.Response) -> str:
+    """URL lógica de la respuesta, la que hay que persistir.
+
+    Con la IP fijada, `respuesta.url` lleva la IP; lo que importa —y lo que
+    sirve de base para resolver enclosures relativos— es el nombre.
+    """
+    return str(respuesta.extensions.get("podcast_kb_url") or respuesta.url)
 
 
 def get_validado(
@@ -86,15 +157,26 @@ def get_validado(
 ) -> httpx.Response:
     """GET siguiendo redirecciones a mano, validando cada salto.
 
-    `client` debe tener `follow_redirects=False`: seguirlas automáticamente
-    saltaría la validación en el primer redirect.
+    Devuelve la respuesta **sin leer**: el cuerpo se consume en streaming con
+    `leer_acotado` o `iter_bytes`, y hay que cerrarla. `client` debe tener
+    `follow_redirects=False`: seguirlas automáticamente saltaría la
+    validación en el primer redirect.
     """
     actual = url
     for _ in range(MAX_REDIRECCIONES + 1):
-        validar_url(actual, permitir_privadas=permitir_privadas)
-        respuesta = client.get(actual, headers=headers, follow_redirects=False)
-        if respuesta.is_redirect and respuesta.has_redirect_location:
-            actual = str(respuesta.next_request.url)
+        ips = validar_url(actual, permitir_privadas=permitir_privadas)
+        if ips and _fijar_ip_activo():
+            peticion = _peticion_fijada(client, actual, ips[0], headers)
+        else:
+            peticion = client.build_request("GET", actual, headers=headers)
+
+        respuesta = client.send(peticion, stream=True, follow_redirects=False)
+        respuesta.extensions["podcast_kb_url"] = actual
+
+        destino = respuesta.headers.get("Location")
+        if respuesta.is_redirect and destino:
+            # Relativa a la URL lógica, no a la que lleva la IP.
+            actual = urljoin(actual, destino)
             respuesta.close()
             continue
         return respuesta

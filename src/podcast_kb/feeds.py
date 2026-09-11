@@ -219,21 +219,25 @@ def fetch_feed(
     try:
         resp = net.get_validado(client, rss_url, headers=headers,
                                 permitir_privadas=allow_private)
-        # §12: respetar el rate limiting que pida el servidor.
-        if resp.status_code == 429:
-            retry_after = resp.headers.get("Retry-After", "?")
-            raise FeedError(f"429 del servidor; Retry-After={retry_after}")
-        final_url = str(resp.url)
-        if resp.status_code == 304:
-            return None, etag, last_modified, final_url
-        resp.raise_for_status()
-        contenido = net.leer_acotado(resp, net.MAX_FEED_BYTES, que="el feed")
-        return (
-            contenido,
-            resp.headers.get("ETag"),
-            resp.headers.get("Last-Modified"),
-            final_url,
-        )
+        try:
+            # §12: respetar el rate limiting que pida el servidor.
+            if resp.status_code == 429:
+                retry_after = resp.headers.get("Retry-After", "?")
+                raise FeedError(f"429 del servidor; Retry-After={retry_after}")
+            # La URL lógica, no la que lleva la IP fijada (§2.3).
+            final_url = net.url_final(resp)
+            if resp.status_code == 304:
+                return None, etag, last_modified, final_url
+            resp.raise_for_status()
+            contenido = net.leer_acotado(resp, net.MAX_FEED_BYTES, que="el feed")
+            return (
+                contenido,
+                resp.headers.get("ETag"),
+                resp.headers.get("Last-Modified"),
+                final_url,
+            )
+        finally:
+            resp.close()
     except (net.UrlNoPermitida, net.DemasiadoGrande) as exc:
         raise FeedError(str(exc)) from exc
     finally:
@@ -537,11 +541,20 @@ def inspect_feed(
     owns_client = client is None
     client = client or httpx.Client(timeout=60, follow_redirects=True)
     try:
-        resp = client.get(rss_url, headers={"User-Agent": USER_AGENT})
-        inspection.status = resp.status_code
-        inspection.final_url = str(resp.url)
-        resp.raise_for_status()
-        parsed = parse_feed(resp.content, base_url=str(resp.url))
+        # Mismo trato que el resto de descargas: destino validado, tamaño
+        # acotado y redirecciones a mano. La URL sale del YAML, pero lo que
+        # hay al otro lado (y adónde redirige) no lo controla nadie de aquí.
+        resp = net.get_validado(
+            client, rss_url, headers={"User-Agent": USER_AGENT}, permitir_privadas=allow_private
+        )
+        try:
+            inspection.status = resp.status_code
+            inspection.final_url = net.url_final(resp)
+            resp.raise_for_status()
+            crudo = net.leer_acotado(resp, net.MAX_FEED_BYTES, que="el feed")
+        finally:
+            resp.close()
+        parsed = parse_feed(crudo, base_url=inspection.final_url)
     except httpx.HTTPError as exc:
         inspection.error = f"{type(exc).__name__}: {exc}"
         return inspection

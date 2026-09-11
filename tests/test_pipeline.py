@@ -228,6 +228,83 @@ class TestDescarga:
         download_audio("https://x/ep.mp3", dest, expected_bytes=100, client=client)
         assert dest.read_bytes() == b"y" * 100
 
+    def test_corta_al_pasar_el_tope_y_no_deja_el_parcial(self, tmp_path):
+        """Un enclosure de 100 GB no puede llenar el disco ni la memoria."""
+        from podcast_kb import net
+        from podcast_kb.audio import download_audio
+
+        emitidos = []
+
+        def cuerpo():
+            for _ in range(100):
+                emitidos.append(1)
+                yield b"x" * 65536
+
+        dest = tmp_path / "ep.mp3"
+        client = httpx.Client(
+            transport=httpx.MockTransport(lambda r: httpx.Response(200, content=cuerpo())),
+            follow_redirects=False,
+        )
+        with pytest.raises(net.DemasiadoGrande):
+            download_audio("https://x/ep.mp3", dest, client=client, max_bytes=128 * 1024)
+        assert len(emitidos) <= 4          # no se descargó entero para luego medirlo
+        assert not dest.exists()
+        assert not dest.with_suffix(".mp3.part").exists()
+
+    def test_un_http_500_no_deja_basura(self, tmp_path):
+        from podcast_kb.audio import download_audio
+
+        dest = tmp_path / "ep.mp3"
+        client = httpx.Client(
+            transport=httpx.MockTransport(lambda r: httpx.Response(500)),
+            follow_redirects=False,
+        )
+        with pytest.raises(httpx.HTTPStatusError):
+            download_audio("https://x/ep.mp3", dest, client=client)
+        assert not dest.exists() and not dest.with_suffix(".mp3.part").exists()
+
+
+class TestSubtitulosDelFeed:
+    """§4.4: la transcripción publicada por el feed nos ahorra Whisper.
+
+    La URL sale del RSS, así que vale lo mismo que para el audio: destino
+    validado, tamaño acotado y lectura en streaming.
+    """
+
+    def test_descarga_y_decodifica(self):
+        from podcast_kb.pipeline import fetch_subtitles
+
+        vtt = "WEBVTT\n\n00:00:01.000 --> 00:00:03.000\nHola qué tal\n"
+        client = httpx.Client(
+            transport=httpx.MockTransport(
+                lambda r: httpx.Response(200, content=vtt.encode("utf-8-sig"))
+            ),
+            follow_redirects=False,
+        )
+        assert "Hola qué tal" in fetch_subtitles("https://x/a.vtt", client=client)
+
+    def test_corta_un_subtitulo_desmesurado(self):
+        from podcast_kb import net
+        from podcast_kb.pipeline import fetch_subtitles
+
+        gigante = b"x" * (net.MAX_SUBTITULO_BYTES + 1)
+        client = httpx.Client(
+            transport=httpx.MockTransport(lambda r: httpx.Response(200, content=gigante)),
+            follow_redirects=False,
+        )
+        with pytest.raises(net.DemasiadoGrande):
+            fetch_subtitles("https://x/a.vtt", client=client)
+
+    def test_un_404_se_propaga(self):
+        from podcast_kb.pipeline import fetch_subtitles
+
+        client = httpx.Client(
+            transport=httpx.MockTransport(lambda r: httpx.Response(404)),
+            follow_redirects=False,
+        )
+        with pytest.raises(httpx.HTTPStatusError):
+            fetch_subtitles("https://x/a.vtt", client=client)
+
 
 @pytest.mark.usefixtures("sin_red")
 class TestRutasDeConfiguracion:

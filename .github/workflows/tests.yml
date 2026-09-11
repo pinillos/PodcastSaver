@@ -1,4 +1,4 @@
-# Ejecuta la suite en cada push. Sin esto, 325 tests no sirven de nada: nadie
+# Ejecuta la suite en cada push. Sin esto, la suite entera no sirve de nada: nadie
 # se entera de que algo se ha roto hasta que falla en el Mac.
 name: tests
 

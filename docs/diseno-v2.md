@@ -1155,9 +1155,18 @@ no son evidentes:
   antes de pedirlas y **en cada redirección**: validar solo la primera no sirve de nada,
   basta redirigir. `PODCAST_KB_ALLOW_PRIVATE_URLS=1` desactiva la comprobación para
   desarrollo, y el `doctor` avisa si está puesta.
+- **DNS rebinding.** Validar resolviendo el nombre y dejar que el cliente HTTP lo
+  resuelva otra vez al conectar deja una ventana entre las dos resoluciones: un DNS
+  hostil contesta una IP pública a la comprobación y `127.0.0.1` a la conexión. Se
+  conecta a la **IP ya validada**, mandando el `Host` y el SNI originales, así que el
+  certificado se sigue verificando contra el nombre real y no contra la IP. Detrás de un
+  proxy no se fija nada —quien resuelve es el proxy, y fijar la IP rompería el
+  `CONNECT`—; ahí la defensa es la del proxy. `PODCAST_KB_PIN_DNS=0` lo desactiva.
 - **Tamaño.** Nada obliga a un servidor a decir la verdad en `Content-Length`. Las
   descargas van acotadas (32 MB el feed, 16 MB un subtítulo, 1 GB el audio) cortando
-  durante la lectura, no confiando en la cabecera.
+  durante la lectura, no confiando en la cabecera. El cuerpo se lee **en streaming**:
+  un tope que se comprueba después de haber descargado la respuesta entera en memoria
+  no acota nada, que es justo lo que pasaba hasta ahora con el audio.
 
 **El slug del podcast es un nombre de directorio**, así que se valida contra
 `^[a-z0-9][a-z0-9-]{0,63}$` al darlo de alta, y la ruta final se comprueba de nuevo
