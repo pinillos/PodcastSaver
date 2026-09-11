@@ -43,6 +43,7 @@ podcast-kb process 1 --force-whisper        # …o transcribe aunque lo haya
 podcast-kb bench tramo.wav                  # compara motores y modelos (§5.3)
 podcast-kb index --dry-run                  # cuántos chunks saldrían
 podcast-kb index --dsn "postgresql://…"     # chunking + embeddings + carga
+podcast-kb index --prune                    # …y quita del índice lo que ya no está
 podcast-kb doctor                           # verifica el entorno
 podcast-kb doctor --dsn "postgresql://…"    # …y el despliegue (RLS incluido)
 ```
@@ -160,8 +161,13 @@ Fases siguientes: decisión de diarización antes del backfill (3), volumen (4).
 ## Desarrollo
 
 ```bash
-uv run pytest
+uv run pytest              # la suite entera
+uv run ruff check src tests
 ```
+
+Hay CI: `.github/workflows/tests.yml` ejecuta lint, tests unitarios y tests de
+navegador en cada push, y aplica `db/*.sql` contra un Postgres con pgvector para
+comprobar que el esquema y el RPC siguen siendo válidos.
 
 Los tests no tocan la red ni necesitan binarios: los feeds se sirven con
 `httpx.MockTransport` sobre el fixture de `tests/fixtures/`, y `ffmpeg`,

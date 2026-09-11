@@ -8,8 +8,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from podcast_kb.chunking import chunk_segments, describe
 from podcast_kb.export import episode_filename
 from podcast_kb.index import load_document

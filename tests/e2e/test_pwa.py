@@ -10,15 +10,12 @@ depender de ellos. Para ejecutarla:
 from __future__ import annotations
 
 import json
+import math
 import shutil
 import socket
-import subprocess
-import sys
-import threading
-import time
-import wave
 import struct
-import math
+import threading
+import wave
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 

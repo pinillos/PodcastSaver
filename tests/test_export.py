@@ -15,21 +15,21 @@ from podcast_kb.segments import Segment
 
 
 def make(**kw) -> ExportInput:
-    base = dict(
-        podcast="El Test de Turing",
-        podcast_slug="test-de-turing",
-        episode_title="Agentes IA: Destripando los enigmas",
-        published_at="2026-07-15T06:00:00Z",
-        language="es",
-        audio_url="https://ejemplo.com/ep.mp3",
-        guid="e1671d44-0001",
-        segments=[Segment(0, 5, "Hola qué tal"), Segment(62, 70, "Hablemos de MCP")],
-        authors=["Álvaro Peña", "Arnau Vendrell"],
-        episode_number=121,
-        duration_sec=3782,
-        transcribed_duration_sec=3821,
-        transcribed_at="2026-08-21T10:22:00+00:00",
-    )
+    base = {
+        "podcast": "El Test de Turing",
+        "podcast_slug": "test-de-turing",
+        "episode_title": "Agentes IA: Destripando los enigmas",
+        "published_at": "2026-07-15T06:00:00Z",
+        "language": "es",
+        "audio_url": "https://ejemplo.com/ep.mp3",
+        "guid": "e1671d44-0001",
+        "segments": [Segment(0, 5, "Hola qué tal"), Segment(62, 70, "Hablemos de MCP")],
+        "authors": ["Álvaro Peña", "Arnau Vendrell"],
+        "episode_number": 121,
+        "duration_sec": 3782,
+        "transcribed_duration_sec": 3821,
+        "transcribed_at": "2026-08-21T10:22:00+00:00",
+    }
     base.update(kw)
     return ExportInput(**base)
 

@@ -140,9 +140,7 @@ def group_into_blocks(
         if buffer:
             cambia_hablante = segment.speaker != buffer[0].speaker
             duracion = segment.end - buffer[0].start
-            if cambia_hablante or duracion > max_sec:
-                flush()
-            elif segment.start - buffer[0].start >= target_sec:
+            if cambia_hablante or duracion > max_sec or segment.start - buffer[0].start >= target_sec:
                 flush()
         buffer.append(segment)
 

@@ -10,10 +10,10 @@ from __future__ import annotations
 
 import re
 import xml.etree.ElementTree as ET
-from urllib.parse import urlsplit
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import urlsplit
 
 import feedparser
 import httpx
@@ -245,7 +245,7 @@ def _to_iso(struct_time: Any) -> str | None:
     if not struct_time:
         return None
     try:
-        dt = datetime(*struct_time[:6], tzinfo=timezone.utc)
+        dt = datetime(*struct_time[:6], tzinfo=UTC)
     except (TypeError, ValueError):
         return None
     return dt.isoformat(timespec="seconds")
@@ -545,7 +545,7 @@ def inspect_feed(
     except httpx.HTTPError as exc:
         inspection.error = f"{type(exc).__name__}: {exc}"
         return inspection
-    except Exception as exc:  # noqa: BLE001 - el diagnóstico no debe romper el flujo
+    except Exception as exc:
         inspection.error = f"{type(exc).__name__}: {exc}"
         return inspection
     finally:

@@ -40,7 +40,14 @@ def _seguridad() -> list[Comprobacion]:
             )
         )
 
-    if any("PODCAST_KB_DSN" not in a and "dbname" in a for a in sys.argv):
+    # Una cadena de conexión llega en dos formatos: `postgresql://…` (la que
+    # copia la gente del panel de Supabase) y `host=… dbname=…`.
+    def _parece_dsn(arg: str) -> bool:
+        return arg.startswith(("postgres://", "postgresql://")) or (
+            "dbname=" in arg and "host=" in arg
+        )
+
+    if any(_parece_dsn(a) for a in sys.argv):
         salida.append(
             Comprobacion(
                 "--dsn en la línea de órdenes",
@@ -231,7 +238,7 @@ def comprobar_backend(dsn: str) -> list[Comprobacion]:
                 salida.append(
                     Comprobacion("embeddings", AVISO, f"{sin_vector} chunks sin vector")
                 )
-    except Exception as exc:  # noqa: BLE001 - el diagnóstico no debe romperse
+    except Exception as exc:
         salida.append(Comprobacion("Postgres", ERROR, f"{type(exc).__name__}: {exc}"))
     return salida
 

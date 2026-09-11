@@ -56,7 +56,7 @@ class HashingEmbedder(Embedder):
         out: list[float] = []
         counter = 0
         while len(out) < self.dimensions:
-            digest = hashlib.sha256(f"{counter}:{text}".encode("utf-8")).digest()
+            digest = hashlib.sha256(f"{counter}:{text}".encode()).digest()
             for i in range(0, len(digest) - 3, 4):
                 if len(out) >= self.dimensions:
                     break

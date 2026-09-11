@@ -1,0 +1,67 @@
+# Ejecuta la suite en cada push. Sin esto, 325 tests no sirven de nada: nadie
+# se entera de que algo se ha roto hasta que falla en el Mac.
+name: tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+
+      - name: Lint
+        run: uv run ruff check src
+
+      - name: Tests unitarios
+        run: uv run pytest tests --ignore=tests/e2e -q
+
+      # Los de navegador van aparte: necesitan Chromium y tardan más.
+      - name: Instalar Chromium
+        run: uv run playwright install --with-deps chromium
+      - name: Tests de navegador
+        run: uv run pytest tests/e2e -q
+
+  sql:
+    # El esquema y el RPC son la mitad del sistema y no los cubre pytest:
+    # aquí se aplican contra un Postgres real con pgvector.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: kb
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+        ports: ["5432:5432"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Aplicar esquema, políticas y funciones
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -e
+          psql -h localhost -U postgres -d kb -v ON_ERROR_STOP=1 \
+            -c "create extension if not exists vector;"
+          for f in db/schema.sql db/policies.sql db/functions.sql; do
+            echo "── $f"
+            psql -h localhost -U postgres -d kb -v ON_ERROR_STOP=1 -f "$f"
+          done
+      - name: Comprobar que la búsqueda responde
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d kb -v ON_ERROR_STOP=1 -c "
+            select count(*) from hybrid_search('prueba', null, 'es');"

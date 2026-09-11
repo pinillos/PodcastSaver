@@ -10,9 +10,9 @@ from pathlib import Path
 
 import httpx
 
-from . import audio, db, export, fixups as fixups_mod, net
+from . import audio, db, export, net, subtitles, transcribe
+from . import fixups as fixups_mod
 from . import segments as seg_mod
-from . import subtitles, transcribe
 from .feeds import USER_AGENT
 from .paths import config_path
 

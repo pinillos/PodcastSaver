@@ -23,6 +23,25 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/podcast_kb"]
 
+[tool.ruff]
+# Fijado a propósito: sin `select` explícito, cada versión de ruff cambia lo
+# que se exige y el CI se pone rojo por motivos ajenos al código.
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "C4", "RUF"]
+ignore = [
+  "E501",    # la longitud la controla el formateador, no el linter
+  "RUF001",  # los textos en español llevan tildes y comillas tipográficas
+  "RUF002",
+  "RUF003",
+  "B008",    # typer declara los valores por defecto en la firma
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E402"]  # conftest ajusta el entorno antes de importar
+
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]

@@ -1,4 +1,3 @@
-import pytest
 
 from podcast_kb.chunking import chunk_segments, describe
 from podcast_kb.segments import Segment
@@ -103,6 +102,6 @@ class TestHablante:
 
 class TestColas:
     def test_una_cola_corta_se_pega_al_anterior(self):
-        segs = hacer(n=40) + [Segment(200.5, 201.0, "ok")]
+        segs = [*hacer(n=40), Segment(200.5, 201.0, "ok")]
         chunks = chunk_segments(segs)
         assert all(len(c.content) >= 40 for c in chunks)

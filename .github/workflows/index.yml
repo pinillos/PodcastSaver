@@ -1,8 +1,8 @@
-# Indexado desatendido: chunk + embed + carga en Supabase al hacer push
-# de nuevas transcripciones (§3.2 del diseño).
+# Indexado desatendido: al hacer push de transcripciones nuevas, se trocean,
+# se vectorizan y se cargan en Supabase — con el Mac apagado (§3.2).
 #
-# Pendiente: la etapa src/index/ no existe todavía (Fase 2). Este workflow
-# queda declarado para no perder la decisión de arquitectura.
+# Requiere el secreto PODCAST_KB_DSN. Mientras no exista, el paso se salta en
+# vez de fallar, para no dar rojos antes de que haya despliegue.
 
 name: index
 
@@ -16,12 +16,21 @@ on:
 jobs:
   index:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PODCAST_KB_DSN: ${{ secrets.PODCAST_KB_DSN }}
+      EMBEDDER: ${{ vars.EMBEDDER || 'hashing' }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
       - run: uv sync --frozen
-      # - run: uv run podcast-kb index --changed-only
-      #   env:
-      #     SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      #     SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      - run: echo "Etapa de indexado pendiente (Fase 2)."
+
+      - name: Indexar las transcripciones nuevas
+        if: env.PODCAST_KB_DSN != ''
+        run: uv run podcast-kb index --embedder "$EMBEDDER"
+
+      - name: Sin despliegue configurado
+        if: env.PODCAST_KB_DSN == ''
+        run: echo "::notice::No hay PODCAST_KB_DSN configurado; no se indexa nada."

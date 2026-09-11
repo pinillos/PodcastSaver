@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-import gzip
-import json
-from pathlib import Path
-
 import pytest
 
 from podcast_kb.embeddings import HashingEmbedder, to_pgvector
 from podcast_kb.export import ExportInput, write_episode
-from podcast_kb.index import IndexReport, chunks_for, discover, index_all, load_document
+from podcast_kb.index import chunks_for, discover, index_all, load_document
 from podcast_kb.segments import SEGMENTS_SUFFIX, Segment, save_segments
 
 
@@ -23,6 +19,8 @@ class FakeCursor:
         self.chunks_borrados = 0
         self.chunks_insertados: list[tuple] = []
         self.embeddings_existentes: dict[str, str] = {}
+        self.episodios_en_base: list[tuple] = []
+        self.borrados: list[str] = []
 
     def execute(self, sql, params=()):
         self.sql.append((sql, params))
@@ -33,6 +31,13 @@ class FakeCursor:
             self._next = None
         elif "insert into episodes" in low:
             self._next = ("22222222-2222-2222-2222-222222222222",)
+        elif low.startswith("select e.id, p.slug"):
+            self._rows = list(self.episodios_en_base)
+            self._next = None
+        elif low.startswith("delete from episodes where id"):
+            self.borrados.append(params[0])
+        elif low.startswith("delete from podcasts"):
+            pass
         elif "select content, embedding from chunks" in low:
             self._rows = [(c, e) for c, e in self.embeddings_existentes.items()
                           if c in (params[1] or [])]
@@ -149,6 +154,48 @@ class TestIndexAll:
         cur = FakeCursor()
         report = index_all(cur, HashingEmbedder(), root=repo)
         assert report.inserted == 2 and len(report.errors) == 1
+
+
+class TestHuerfanos:
+    """Borrar un .md no quitaba su episodio del buscador: seguía apareciendo
+    en los resultados apuntando a algo que ya no existe."""
+
+    def test_los_detecta(self, repo):
+        cur = FakeCursor()
+        cur.episodios_en_base = [
+            ("ep-viejo", "test-de-turing", "g-borrado", "Episodio que ya no está"),
+        ]
+        report = index_all(cur, HashingEmbedder(), root=repo)
+        assert len(report.huerfanos) == 1
+        assert "Episodio que ya no está" in report.huerfanos[0]
+
+    def test_no_borra_sin_pedirlo(self, repo):
+        cur = FakeCursor()
+        cur.episodios_en_base = [("ep-viejo", "test-de-turing", "g-borrado", "X")]
+        index_all(cur, HashingEmbedder(), root=repo)
+        assert cur.borrados == []
+
+    def test_con_prune_los_borra(self, repo):
+        cur = FakeCursor()
+        cur.episodios_en_base = [("ep-viejo", "test-de-turing", "g-borrado", "X")]
+        report = index_all(cur, HashingEmbedder(), root=repo, prune=True)
+        assert cur.borrados == ["ep-viejo"] and report.podados == 1
+
+    def test_no_toca_los_que_si_estan(self, repo):
+        cur = FakeCursor()
+        cur.episodios_en_base = [
+            ("ep-1", "test-de-turing", "g1", "Agentes y MCP"),
+            ("ep-2", "test-de-turing", "g2", "Fine-tuning en local"),
+        ]
+        report = index_all(cur, HashingEmbedder(), root=repo, prune=True)
+        assert report.huerfanos == [] and cur.borrados == []
+
+    def test_un_directorio_vacio_no_borra_nada(self, tmp_path):
+        """Un `root` equivocado no debe vaciar el índice."""
+        cur = FakeCursor()
+        cur.episodios_en_base = [("ep-1", "x", "g1", "Algo")]
+        report = index_all(cur, HashingEmbedder(), root=tmp_path, prune=True)
+        assert report.podados == 0 and cur.borrados == []
 
 
 class TestEmbedder:

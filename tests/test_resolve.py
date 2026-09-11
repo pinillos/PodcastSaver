@@ -1,7 +1,7 @@
 import httpx
 import pytest
 
-from podcast_kb.feeds import inspect_feed, resolve_feed_from_apple_id, FeedError
+from podcast_kb.feeds import FeedError, inspect_feed, resolve_feed_from_apple_id
 
 FEED = (b"""<?xml version="1.0"?>
 <rss version="2.0" xmlns:podcast="https://podcastindex.org/namespace/1.0">

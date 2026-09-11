@@ -50,9 +50,9 @@ def download_audio(
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
 
-    if dest.exists() and dest.stat().st_size > 0:
-        if expected_bytes is None or dest.stat().st_size == expected_bytes:
-            return dest
+    ya_esta = dest.exists() and dest.stat().st_size > 0
+    if ya_esta and (expected_bytes is None or dest.stat().st_size == expected_bytes):
+        return dest
 
     owns_client = client is None
     client = client or httpx.Client(timeout=300, follow_redirects=False)

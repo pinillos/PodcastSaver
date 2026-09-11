@@ -7,7 +7,7 @@ de podcasts es config/podcasts.yaml (§4.1): si divergen, gana el YAML.
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 DEFAULT_DB_PATH = Path("db/local.sqlite")
@@ -122,7 +122,7 @@ STAGES = (
 
 
 def utcnow() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def connect(path: Path | str = DEFAULT_DB_PATH) -> sqlite3.Connection:
@@ -169,6 +169,51 @@ def migrate(conn: sqlite3.Connection) -> list[str]:
     if applied:
         conn.commit()
     return applied
+
+
+# Reintentos (§4.3). Sin esto, un episodio cuyo audio da 404 se reintenta en
+# cada ejecución para siempre — y con `--pending N` llega a copar el lote
+# entero, impidiendo que avancen los que sí funcionan.
+BACKOFF_BASE_MIN = 15
+BACKOFF_MAX_HORAS = 24
+MAX_INTENTOS = 5
+
+
+def proximo_reintento(intentos: int) -> str | None:
+    """Cuándo volver a intentarlo. `None` = no volver a intentarlo solo."""
+    if intentos >= MAX_INTENTOS:
+        return None
+    minutos = min(BACKOFF_BASE_MIN * (2 ** (intentos - 1)), BACKOFF_MAX_HORAS * 60)
+    return (datetime.now(UTC) + timedelta(minutes=minutos)).isoformat(
+        timespec="seconds"
+    )
+
+
+def registrar_fallo(conn: sqlite3.Connection, episode_id: int, error: str) -> tuple[int, str | None]:
+    """Anota el fallo y programa el siguiente intento. Devuelve (intentos, cuándo)."""
+    fila = conn.execute(
+        "SELECT attempts FROM episodes WHERE id = ?", (episode_id,)
+    ).fetchone()
+    intentos = (fila["attempts"] if fila else 0) + 1
+    cuando = proximo_reintento(intentos)
+    conn.execute(
+        "UPDATE episodes SET attempts = ?, last_error = ?, next_retry_at = ?, "
+        "  needs_review = CASE WHEN ? THEN 1 ELSE needs_review END "
+        "WHERE id = ?",
+        (intentos, error[:500], cuando, cuando is None, episode_id),
+    )
+    conn.commit()
+    return intentos, cuando
+
+
+def limpiar_fallo(conn: sqlite3.Connection, episode_id: int) -> None:
+    """Un episodio que termina bien deja de arrastrar su historial de fallos."""
+    conn.execute(
+        "UPDATE episodes SET attempts = 0, next_retry_at = NULL, last_error = NULL "
+        "WHERE id = ?",
+        (episode_id,),
+    )
+    conn.commit()
 
 
 def upsert_podcast(conn: sqlite3.Connection, podcast: dict) -> int:

@@ -9,7 +9,7 @@ FIXTURE = Path(__file__).parent / "fixtures" / "feed_ejemplo.xml"
 
 # Mismo audio (EP121) que el fixture, pero publicado en otro feed, con otro
 # guid y otro prefijo de tracking: el escenario de §2.2.
-FEED_DUPLICADO = """<?xml version="1.0" encoding="UTF-8"?>
+FEED_DUPLICADO = b"""<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
   <channel>
     <title>Growth: el podcast de Product Hackers</title>
@@ -23,7 +23,7 @@ FEED_DUPLICADO = """<?xml version="1.0" encoding="UTF-8"?>
     </item>
   </channel>
 </rss>
-""".encode()
+"""
 
 
 @pytest.fixture
@@ -141,7 +141,6 @@ class TestDedupeEntreFeeds:
 
 class TestSyncAll:
     def test_salta_los_inactivos(self, conn):
-        client = make_client({FEED_URL: (200, FIXTURE.read_bytes(), {})})
         entries = [ENTRY, {**ENTRY, "slug": "inactivo", "active": False}]
         # sync_all abre su propio cliente; se prueba solo el filtrado.
         activos = [e for e in entries if e.get("active", True)]

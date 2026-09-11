@@ -17,7 +17,8 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import audio, segments as seg_mod, transcribe
+from . import audio, transcribe
+from . import segments as seg_mod
 
 
 @dataclass
@@ -69,7 +70,12 @@ def run_bench(
     report = BenchReport(wav=str(wav), audio_duration_sec=duration)
 
     for engine_name, model in combos:
-        prefix = workdir / f"{wav.stem}--{engine_name.replace('.', '_')}--{Path(model).stem}"
+        # Cada combinación en su propio directorio: mlx_whisper nombra la
+        # salida por el fichero de ENTRADA, así que dos modelos del mismo
+        # motor escribirían en el mismo .json y el segundo pisaría al primero.
+        celda = workdir / f"{engine_name.replace('.', '_')}--{Path(model).stem}"
+        celda.mkdir(parents=True, exist_ok=True)
+        prefix = celda / wav.stem
         try:
             result = transcribe.transcribe(
                 wav, prefix,

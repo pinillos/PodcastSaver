@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 import httpx
 import typer
@@ -37,8 +36,8 @@ def init(db_path: str = DbOption) -> None:
 @app.command()
 def add(
     slug: str = typer.Option(..., "--slug", help="Identificador corto y estable."),
-    rss: Optional[str] = typer.Option(None, "--rss", help="URL del feed RSS."),
-    apple_id: Optional[str] = typer.Option(
+    rss: str | None = typer.Option(None, "--rss", help="URL del feed RSS."),
+    apple_id: str | None = typer.Option(
         None, "--apple-id",
         help="ID de Apple Podcasts, o una URL de pod.link / podcasts.apple.com.",
     ),
@@ -91,7 +90,7 @@ def add(
 
 @app.command()
 def resolve(
-    slug: Optional[str] = typer.Option(None, "--slug", help="Resuelve solo este podcast."),
+    slug: str | None = typer.Option(None, "--slug", help="Resuelve solo este podcast."),
     force: bool = typer.Option(
         False, "--force", help="Re-resuelve también los que ya tienen rss_url."
     ),
@@ -224,7 +223,7 @@ def sync(
     dry_run: bool = typer.Option(
         False, "--dry-run", help="Lista lo que se detectaría, sin escribir ni descargar."
     ),
-    limit: Optional[int] = typer.Option(
+    limit: int | None = typer.Option(
         None, "--max-episodes", help="Tope de episodios por podcast (§5.9)."
     ),
     db_path: str = DbOption,
@@ -296,8 +295,8 @@ def _render(report: ingest.SyncReport, *, dry_run: bool) -> None:
 
 @app.command()
 def episodes(
-    slug: Optional[str] = typer.Option(None, "--podcast", help="Filtra por slug de podcast."),
-    stage: Optional[str] = typer.Option(None, "--stage", help="Filtra por etapa."),
+    slug: str | None = typer.Option(None, "--podcast", help="Filtra por slug de podcast."),
+    stage: str | None = typer.Option(None, "--stage", help="Filtra por etapa."),
     limit: int = typer.Option(20, "--limit"),
     db_path: str = DbOption,
 ) -> None:
@@ -339,10 +338,10 @@ def episodes(
 
 @app.command()
 def process(
-    episode_id: Optional[int] = typer.Argument(
+    episode_id: int | None = typer.Argument(
         None, help="ID del episodio (ver `podcast-kb episodes`). Omítelo con --pending."
     ),
-    pending: Optional[int] = typer.Option(
+    pending: int | None = typer.Option(
         None, "--pending", "-n",
         help="Procesa los N episodios pendientes más recientes, en vez de uno concreto.",
     ),
@@ -397,16 +396,22 @@ def process(
             )
         except (ValueError, OSError, RuntimeError, httpx.HTTPError) as exc:
             # Un fallo de red o de un binario externo se registra para
-            # reintento (§4.3), no se escupe como traceback, y en un lote no
-            # tira abajo los episodios que sí funcionan.
+            # reintento con espera creciente (§4.3), no se escupe como
+            # traceback, y en un lote no tira abajo los que sí funcionan.
             console.print(f"[red]✗[/] {type(exc).__name__}: {exc}")
-            conn.execute(
-                "UPDATE episodes SET attempts = attempts + 1, last_error = ? WHERE id = ?",
-                (f"{type(exc).__name__}: {exc}"[:500], actual),
+            intentos, cuando = db.registrar_fallo(
+                conn, actual, f"{type(exc).__name__}: {exc}"
             )
-            conn.commit()
+            if cuando is None:
+                console.print(
+                    f"  [yellow]abandonado tras {intentos} intentos[/] "
+                    "[dim]— marcado para revisión; no se reintentará solo[/]"
+                )
+            else:
+                console.print(f"  [dim]siguiente intento a partir de {cuando[:16].replace('T', ' ')}[/]")
             fallos += 1
             continue
+        db.limpiar_fallo(conn, actual)
         _render_outcome(outcome)
 
     if fallos:
@@ -442,7 +447,7 @@ def _render_outcome(outcome) -> None:
 
 @app.command(name="index")
 def index_cmd(
-    dsn: Optional[str] = typer.Option(
+    dsn: str | None = typer.Option(
         None, "--dsn", envvar="PODCAST_KB_DSN",
         help="Cadena de conexión a Postgres. También por PODCAST_KB_DSN.",
     ),
@@ -451,6 +456,10 @@ def index_cmd(
     ),
     root: str = typer.Option("transcripts", "--root", help="Directorio de .md."),
     force: bool = typer.Option(False, "--force", help="Reindexa todo, ignorando checksums."),
+    prune: bool = typer.Option(
+        False, "--prune",
+        help="Borra del índice los episodios cuyo .md ya no está en el repositorio.",
+    ),
     dry_run: bool = typer.Option(False, "--dry-run", help="No escribe en la base de datos."),
 ) -> None:
     """Carga los .md en Postgres: chunking, embeddings e índice híbrido (§8).
@@ -508,18 +517,34 @@ def index_cmd(
 
     with psycopg.connect(dsn) as conn:
         with conn.cursor() as cur:
-            report = index_mod.index_all(cur, embedder_obj, root=root, force=force)
+            report = index_mod.index_all(
+                cur, embedder_obj, root=root, force=force, prune=prune
+            )
         conn.commit()
 
     table = Table(title="Indexado")
-    table.add_column("métrica"); table.add_column("valor", justify="right")
+    table.add_column("métrica")
+    table.add_column("valor", justify="right")
     table.add_row("episodios escaneados", str(report.scanned))
     table.add_row("reindexados", str(report.inserted))
     table.add_row("solo metadatos", str(report.metadata_only))
     table.add_row("chunks", str(report.chunks))
     table.add_row("embeddings calculados", str(report.embedded))
     table.add_row("embeddings reutilizados", str(report.cached))
+    if report.podados:
+        table.add_row("huérfanos borrados", str(report.podados))
     console.print(table)
+
+    if report.huerfanos and not prune:
+        console.print(
+            f"\n[yellow]{len(report.huerfanos)} episodios siguen en el índice pero ya no "
+            "están en el repositorio:[/]"
+        )
+        for nombre in report.huerfanos[:10]:
+            console.print(f"  · {nombre}")
+        if len(report.huerfanos) > 10:
+            console.print(f"  … y {len(report.huerfanos) - 10} más")
+        console.print("[dim]Usa --prune para quitarlos del buscador.[/]")
 
     for error in report.errors:
         console.print(f"[red]✗[/] {error}")
@@ -529,7 +554,7 @@ def index_cmd(
 
 @app.command()
 def doctor(
-    dsn: Optional[str] = typer.Option(
+    dsn: str | None = typer.Option(
         None, "--dsn", envvar="PODCAST_KB_DSN",
         help="Comprueba también el backend Postgres.",
     ),

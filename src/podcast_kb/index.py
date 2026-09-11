@@ -15,7 +15,8 @@ from typing import Any, Protocol
 
 import yaml
 
-from . import chunking, segments as seg_mod
+from . import chunking
+from . import segments as seg_mod
 from .embeddings import Embedder, to_pgvector
 from .export import TRANSCRIPTS_DIR, meta_checksum, split_front_matter, transcript_checksum
 
@@ -49,6 +50,8 @@ class EpisodeDocument:
 @dataclass
 class IndexReport:
     scanned: int = 0
+    huerfanos: list[str] = field(default_factory=list)
+    podados: int = 0
     inserted: int = 0
     metadata_only: int = 0
     unchanged: int = 0
@@ -265,7 +268,9 @@ def index_document(
 
     faltan = [t for t in textos if t not in cache]
     if faltan:
-        for texto, vector in zip(faltan, embedder.embed_passages(faltan)):
+        # strict: si el embedder devuelve menos vectores que textos, hay que
+        # enterarse aquí y no con un KeyError tres líneas más abajo.
+        for texto, vector in zip(faltan, embedder.embed_passages(faltan), strict=True):
             cache[texto] = to_pgvector(vector)
     report.embedded += len(faltan)
     report.cached += len(textos) - len(faltan)
@@ -297,15 +302,32 @@ def index_document(
     report.chunks += len(pieces)
 
 
+def _detectar_huerfanos(cur: Cursor, presentes: set[tuple[str, str]]) -> list[tuple]:
+    """Episodios que están en la base pero ya no en el repositorio.
+
+    Borrar un .md no los quitaba de Postgres, así que seguían saliendo en las
+    búsquedas apuntando a un episodio que ya no existe. Igual al renombrar el
+    slug de un podcast: el viejo se quedaba con todos sus episodios dentro.
+    """
+    cur.execute(
+        "select e.id, p.slug, e.guid, e.title from episodes e "
+        "join podcasts p on p.id = e.podcast_id"
+    )
+    return [fila for fila in cur.fetchall() if (fila[1], fila[2]) not in presentes]
+
+
 def index_all(
     cur: Cursor,
     embedder: Embedder,
     *,
     root: Path | str = TRANSCRIPTS_DIR,
     force: bool = False,
+    prune: bool = False,
 ) -> IndexReport:
     report = IndexReport()
     cache: dict[str, list[float]] = {}
+    presentes: set[tuple[str, str]] = set()
+
     for md_path in discover(root):
         report.scanned += 1
         try:
@@ -313,6 +335,23 @@ def index_all(
         except (ValueError, yaml.YAMLError) as exc:
             report.errors.append(f"{md_path}: {exc}")
             continue
+        presentes.add((document.podcast_slug, document.guid))
         index_document(cur, document, embedder, report=report, force=force, cache=cache)
+
+    # Solo se buscan huérfanos si se ha leído algo: un `root` equivocado
+    # borraría el índice entero.
+    if presentes:
+        huerfanos = _detectar_huerfanos(cur, presentes)
+        report.huerfanos = [f"{slug} · {titulo}" for _, slug, _, titulo in huerfanos]
+        if prune and huerfanos:
+            for episode_id, *_ in huerfanos:
+                # chunks cae por ON DELETE CASCADE.
+                cur.execute("delete from episodes where id = %s", (episode_id,))
+            cur.execute(
+                "delete from podcasts p where not exists "
+                "(select 1 from episodes e where e.podcast_id = p.id)"
+            )
+            report.podados = len(huerfanos)
+
     report.unchanged = report.metadata_only
     return report

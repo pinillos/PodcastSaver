@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -119,7 +119,7 @@ def build_front_matter(data: ExportInput) -> dict:
         "engine": data.engine,
         "model": data.model,
         "transcribed_at": data.transcribed_at
-        or datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        or datetime.now(UTC).isoformat(timespec="seconds"),
         "vad": data.vad,
         "diarized": data.diarized,
         "needs_review": data.needs_review,

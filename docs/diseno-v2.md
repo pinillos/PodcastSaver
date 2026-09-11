@@ -217,8 +217,10 @@ Cada etapa persiste su `*_at`. Una ejecución interrumpida se retoma exactamente
 quedó, y una etapa concreta puede rehacerse sin tocar las demás.
 
 **Reintentos con backoff**: `attempts`, `next_retry_at` y `last_error`. Sin esto, un episodio
-cuyo audio da 404 se reintenta en cada `sync`, para siempre. Backoff exponencial y abandono
-tras N intentos, marcando el episodio para revisión.
+cuyo audio da 404 se reintenta en cada ejecución para siempre — y con `process --pending N`
+llega a copar el lote entero, impidiendo que avancen los que sí funcionan. La espera crece
+15 min → 30 → 1 h → 2 h y se abandona tras 5 intentos, marcando el episodio para revisión.
+Un episodio que termina bien borra su historial de fallos.
 
 **Revisión de calidad**: flag `needs_review` (§5.8).
 
@@ -976,6 +978,13 @@ nuevo invalidaría ~17.500 chunks y dispararía un re-embedding completo inneces
 - `meta_checksum` — hash del front matter → `UPDATE` barato sobre `episodes`.
 
 `--force` para reindexado completo.
+
+**Huérfanos.** Borrar un `.md` no quitaba su episodio del índice: seguía apareciendo en las
+búsquedas apuntando a algo que ya no existe, y renombrar el slug de un podcast dejaba el
+viejo con todos sus episodios dentro. El indexado los detecta comparando lo que hay en la
+base con lo que hay en el repositorio, los reporta siempre y los borra con `--prune`. La
+comprobación se salta si no se ha leído ningún `.md`: un `--root` equivocado vaciaría el
+índice entero.
 
 ### 8.6 Presupuesto de almacenamiento
 
